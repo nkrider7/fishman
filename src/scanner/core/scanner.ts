@@ -1,0 +1,155 @@
+import type { FileSystemAdapter, ScannerPluginRegistry } from "./types";
+import type { ScanResult, ScanWarning } from "../models/scan-result";
+import type { ApiEndpoint } from "../models/endpoint";
+import type { ScanRunOptions } from "./scan-options";
+import { readPackageJson } from "../utils/file-discovery";
+import { scannerRegistry } from "./registry";
+import { nodeLanguagePlugin } from "../language/node-plugin";
+
+let initialized = false;
+
+export function initializeScanner(
+  registry: ScannerPluginRegistry = scannerRegistry,
+): void {
+  if (initialized) return;
+  registry.registerLanguage(nodeLanguagePlugin);
+  initialized = true;
+}
+
+export async function scanProject(
+  fs: FileSystemAdapter,
+  options: ScanRunOptions,
+  registry: ScannerPluginRegistry = scannerRegistry,
+): Promise<ScanResult> {
+  initializeScanner(registry);
+  const start = Date.now();
+  const warnings: ScanWarning[] = [];
+
+  options.onProgress?.({
+    stage: "detecting-language",
+    message: "Detecting project language...",
+    percent: 5,
+  });
+
+  const packageJson = (await readPackageJson(fs, options.projectPath)) ?? {};
+  const detectionCtx = {
+    projectPath: options.projectPath,
+    fs,
+    packageJson,
+  };
+
+  const language = await registry.detectLanguage(detectionCtx);
+  if (!language) {
+    return {
+      projectPath: options.projectPath,
+      language: "unknown",
+      framework: "unknown",
+      frameworks: [],
+      endpoints: [],
+      warnings: [
+        {
+          message:
+            "Could not detect project language. Supported: Node.js (package.json).",
+          severity: "error",
+        },
+      ],
+      scannedFiles: 0,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  options.onProgress?.({
+    stage: "detecting-framework",
+    message: `Detected ${language.name}. Finding frameworks...`,
+    percent: 15,
+  });
+
+  let frameworks = await registry.detectFrameworks(language, detectionCtx);
+  if (options.frameworks?.length) {
+    frameworks = frameworks.filter((f) => options.frameworks!.includes(f.id));
+  }
+
+  if (frameworks.length === 0) {
+    warnings.push({
+      message: `No supported frameworks detected for ${language.name}.`,
+      severity: "warning",
+    });
+    return {
+      projectPath: options.projectPath,
+      language: language.id,
+      framework: "none",
+      frameworks: [],
+      endpoints: [],
+      warnings,
+      scannedFiles: 0,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  const allEndpoints: ApiEndpoint[] = [];
+  const frameworkIds: string[] = [];
+
+  for (let i = 0; i < frameworks.length; i++) {
+    const framework = frameworks[i];
+    frameworkIds.push(framework.id);
+
+    options.onProgress?.({
+      stage: "extracting-routes",
+      message: `Scanning ${framework.name} routes...`,
+      percent: 20 + Math.round((i / frameworks.length) * 60),
+    });
+
+    try {
+      const endpoints = await framework.scan({
+        ...detectionCtx,
+        options,
+        packageJson,
+        detectedFrameworks: frameworkIds,
+        onProgress: options.onProgress,
+      });
+      allEndpoints.push(...endpoints);
+    } catch (err) {
+      warnings.push({
+        message: `${framework.name} scanner failed: ${err instanceof Error ? err.message : String(err)}`,
+        severity: "warning",
+      });
+    }
+  }
+
+  const deduped = dedupeEndpoints(allEndpoints);
+
+  if (deduped.length === 0) {
+    warnings.push({
+      message:
+        "No routes found. Ensure route files use patterns like app.get('/path', handler) or router.post('/path', handler), and that the project folder was selected with read access.",
+      severity: "warning",
+    });
+  }
+
+  options.onProgress?.({
+    stage: "complete",
+    message: `Found ${deduped.length} endpoints`,
+    percent: 100,
+    routesFound: deduped.length,
+  });
+
+  return {
+    projectPath: options.projectPath,
+    language: language.id,
+    framework: frameworkIds.join(", "),
+    frameworks: frameworkIds,
+    endpoints: deduped,
+    warnings,
+    scannedFiles: deduped.length,
+    durationMs: Date.now() - start,
+  };
+}
+
+function dedupeEndpoints(endpoints: ApiEndpoint[]): ApiEndpoint[] {
+  const seen = new Map<string, ApiEndpoint>();
+  for (const ep of endpoints) {
+    const key = `${ep.method}:${ep.path}`;
+    if (!seen.has(key)) seen.set(key, ep);
+  }
+  return Array.from(seen.values());
+}

@@ -1,0 +1,60 @@
+import type { ApiEndpoint } from "../models/endpoint";
+import type { ScanOptions, ScanProgress } from "../models/scan-result";
+
+export interface FsDirEntry {
+  name: string;
+  isDirectory: boolean;
+}
+
+export interface FileSystemAdapter {
+  readFile(path: string): Promise<string>;
+  readDir(path: string): Promise<FsDirEntry[]>;
+  exists(path: string): Promise<boolean>;
+  join(...parts: string[]): string | Promise<string>;
+  basename(path: string): string | Promise<string>;
+  relative(from: string, to: string): string;
+}
+
+export interface PackageJson {
+  name?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+export interface DetectionContext {
+  projectPath: string;
+  fs: FileSystemAdapter;
+  packageJson?: PackageJson;
+}
+
+export interface ScanContext extends DetectionContext {
+  options: ScanOptions;
+  onProgress?: (progress: ScanProgress) => void;
+  packageJson: PackageJson;
+  detectedFrameworks: string[];
+}
+
+export interface FrameworkPlugin {
+  readonly id: string;
+  readonly name: string;
+  readonly languageId: string;
+  detect(ctx: DetectionContext): Promise<boolean>;
+  scan(ctx: ScanContext): Promise<ApiEndpoint[]>;
+}
+
+export interface LanguagePlugin {
+  readonly id: string;
+  readonly name: string;
+  detect(ctx: DetectionContext): Promise<boolean>;
+  getFrameworkPlugins(): FrameworkPlugin[];
+}
+
+export interface ScannerPluginRegistry {
+  registerLanguage(plugin: LanguagePlugin): void;
+  getLanguages(): LanguagePlugin[];
+  detectLanguage(ctx: DetectionContext): Promise<LanguagePlugin | null>;
+  detectFrameworks(
+    language: LanguagePlugin,
+    ctx: DetectionContext,
+  ): Promise<FrameworkPlugin[]>;
+}
