@@ -32,8 +32,13 @@ export function parseSource(code: string, filePath: string): ParsedSource | null
 export function getStringLiteral(node: t.Node | null | undefined): string | null {
   if (!node) return null;
   if (t.isStringLiteral(node)) return node.value;
-  if (t.isTemplateLiteral(node) && node.expressions.length === 0) {
-    return node.quasis.map((q) => q.value.cooked ?? "").join("");
+  if (t.isTemplateLiteral(node)) {
+    if (node.expressions.length === 0) {
+      return node.quasis.map((q) => q.value.cooked ?? "").join("");
+    }
+    // Use the static prefix before the first expression, e.g. `/api/v1/${id}` → `/api/v1`
+    const prefix = node.quasis[0]?.value.cooked ?? "";
+    return prefix || null;
   }
   return null;
 }

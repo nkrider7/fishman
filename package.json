@@ -43,6 +43,7 @@
     "cmdk": "^1.1.1",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.23.0",
+    "py-ast": "^1.9.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.80.0",

@@ -8,3 +8,5 @@ export * from "./core/scan-options";
 export * from "./builders/collection-builder";
 export * from "./services/scan-import-service";
 export { createTauriFileSystem } from "./utils/tauri-fs";
+export { pythonLanguagePlugin } from "./language/python-plugin";
+export { detectPythonProject } from "./plugins/python/shared/project-detector";

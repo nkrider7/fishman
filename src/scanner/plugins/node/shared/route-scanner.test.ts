@@ -408,6 +408,196 @@ export default fastify;
     expect(paths).toContain("GET /api/tasks/:id");
   });
 
+  it("resolves nested express app.use mount chains across files", async () => {
+    const authRoute = `
+import { Router } from "express";
+const router = Router();
+router.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  res.json({ ok: true });
+});
+router.post("/register", (_req, res) => res.json({}));
+export default router;
+`;
+
+    const v1Routes = `
+import { Router } from "express";
+import authRouter from "./auth.route";
+const router = Router();
+router.use("/auth", authRouter);
+export default router;
+`;
+
+    const appFile = `
+import express from "express";
+import v1Router from "./routes/v1";
+const app = express();
+app.use("/api/v1", v1Router);
+export default app;
+`;
+
+    const fs = createMemoryFs({
+      "/project/package.json": "{}",
+      "/project/src/routes/v1/auth.route.ts": authRoute,
+      "/project/src/routes/v1/index.ts": v1Routes,
+      "/project/src/app.ts": appFile,
+    });
+
+    const endpoints = await scanWithRoutePatterns(
+      {
+        projectPath: "/project",
+        fs,
+        packageJson: { dependencies: { express: "^4.0.0" } },
+        options: { projectPath: "/project" },
+        detectedFrameworks: ["express"],
+      },
+      "express",
+      { receivers: ["router", "app"] },
+    );
+
+    const paths = endpoints.map((ep) => `${ep.method} ${ep.path}`);
+    expect(paths).toContain("POST /api/v1/auth/login");
+    expect(paths).toContain("POST /api/v1/auth/register");
+
+    const login = endpoints.find((ep) => ep.path === "/api/v1/auth/login");
+    expect(login?.requestBody?.schema).toEqual({ email: "", password: "" });
+  });
+
+  it("resolves nested express mounts with custom router variable names in one file", async () => {
+    const routes = `
+import express from "express";
+const app = express();
+const authRouter = express.Router();
+const apiRouter = express.Router();
+
+authRouter.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  res.json({ ok: true });
+});
+
+apiRouter.use("/auth", authRouter);
+app.use("/api/v1", apiRouter);
+export default app;
+`;
+
+    const fs = createMemoryFs({
+      "/project/package.json": "{}",
+      "/project/src/app.ts": routes,
+    });
+
+    const endpoints = await scanWithRoutePatterns(
+      {
+        projectPath: "/project",
+        fs,
+        packageJson: { dependencies: { express: "^4.0.0" } },
+        options: { projectPath: "/project" },
+        detectedFrameworks: ["express"],
+      },
+      "express",
+      { receivers: ["router", "app"] },
+    );
+
+    const login = endpoints.find((ep) => ep.path.endsWith("/login"));
+    expect(login?.path).toBe("/api/v1/auth/login");
+    expect(login?.requestBody?.schema).toEqual({ email: "", password: "" });
+  });
+
+  it("resolves express mounts with middleware before router (production pattern)", async () => {
+    const authRoute = `
+import { Router } from "express";
+const router = Router();
+router.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  res.json({ ok: true });
+});
+router.post("/register", (_req, res) => res.json({}));
+export default router;
+`;
+
+    const appFile = `
+import express from "express";
+import authRoutes from "./routes/auth.route";
+const app = express();
+const authRateLimiter = (_req, _res, next) => next();
+app.use("/api/v1/auth", authRateLimiter, authRoutes);
+export default app;
+`;
+
+    const fs = createMemoryFs({
+      "/project/package.json": "{}",
+      "/project/src/routes/auth.route.ts": authRoute,
+      "/project/src/index.ts": appFile,
+    });
+
+    const endpoints = await scanWithRoutePatterns(
+      {
+        projectPath: "/project",
+        fs,
+        packageJson: { dependencies: { express: "^4.0.0" } },
+        options: { projectPath: "/project" },
+        detectedFrameworks: ["express"],
+      },
+      "express",
+      { receivers: ["router", "app"] },
+    );
+
+    const paths = endpoints.map((ep) => `${ep.method} ${ep.path}`);
+    expect(paths).toContain("POST /api/v1/auth/login");
+    expect(paths).toContain("POST /api/v1/auth/register");
+  });
+
+  it("resolves nested express mounts through barrel re-exports", async () => {
+    const authRoute = `
+import { Router } from "express";
+const router = Router();
+router.post("/login", (_req, res) => res.json({}));
+export default router;
+`;
+
+    const v1Routes = `
+import { Router } from "express";
+import authRouter from "./auth.route";
+const router = Router();
+router.use("/auth", authRouter);
+export default router;
+`;
+
+    const routesIndex = `
+export { default } from "./v1";
+`;
+
+    const appFile = `
+import express from "express";
+import routes from "./routes";
+const app = express();
+app.use("/api/v1", routes);
+export default app;
+`;
+
+    const fs = createMemoryFs({
+      "/project/package.json": "{}",
+      "/project/src/routes/v1/auth.route.ts": authRoute,
+      "/project/src/routes/v1/index.ts": v1Routes,
+      "/project/src/routes/index.ts": routesIndex,
+      "/project/src/app.ts": appFile,
+    });
+
+    const endpoints = await scanWithRoutePatterns(
+      {
+        projectPath: "/project",
+        fs,
+        packageJson: { dependencies: { express: "^4.0.0" } },
+        options: { projectPath: "/project" },
+        detectedFrameworks: ["express"],
+      },
+      "express",
+      { receivers: ["router", "app"] },
+    );
+
+    const login = endpoints.find((ep) => ep.path.endsWith("/login"));
+    expect(login?.path).toBe("/api/v1/auth/login");
+  });
+
   it("infers body from route path when handler has no destructuring", async () => {
     const routes = `
 router.post("/register", (_req, res) => res.json({ ok: true }));

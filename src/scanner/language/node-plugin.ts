@@ -37,7 +37,6 @@ export const nodeLanguagePlugin: LanguagePlugin = {
 
 // Future language stubs — register when implemented
 export const futureLanguagePlugins = {
-  python: { id: "python", markers: ["pyproject.toml", "requirements.txt"] },
   go: { id: "go", markers: ["go.mod"] },
   rust: { id: "rust", markers: ["Cargo.toml"] },
   java: { id: "java", markers: ["pom.xml", "build.gradle"] },

@@ -9,6 +9,7 @@ import {
 } from "../../../parsers/analysis/extractors";
 import * as t from "@babel/types";
 import type { NodePath } from "@babel/traverse";
+import { parseUseCall } from "./mount-args";
 
 /** Maps route file → full mount prefix from app.use / router.use chains */
 export type GlobalMountMap = Map<string, string>;
@@ -122,6 +123,42 @@ function extractPrefixFromOptions(arg: t.Node | undefined): string {
   return "";
 }
 
+function resolveDefaultExportTarget(
+  parsed: ReturnType<typeof parseSource>,
+  fromFile: string,
+  fileIndex: Set<string>,
+  bindings: Map<string, string>,
+): string | null {
+  if (!parsed) return null;
+
+  for (const node of parsed.ast.program.body) {
+    if (t.isExportDefaultDeclaration(node)) {
+      const decl = node.declaration;
+      if (t.isIdentifier(decl)) {
+        return bindings.get(decl.name) ?? null;
+      }
+      continue;
+    }
+
+    if (
+      t.isExportNamedDeclaration(node) &&
+      node.source &&
+      !node.declaration
+    ) {
+      const reexportsDefault = node.specifiers.some(
+        (s) =>
+          t.isExportSpecifier(s) &&
+          ((t.isIdentifier(s.exported) && s.exported.name === "default") ||
+            (t.isStringLiteral(s.exported) && s.exported.value === "default")),
+      );
+      if (!reexportsDefault) continue;
+      return resolveImportToFile(node.source.value, fromFile, fileIndex);
+    }
+  }
+
+  return null;
+}
+
 function pushMountEdge(
   edges: ResolvedMount[],
   fromFile: string,
@@ -137,6 +174,30 @@ function pushMountEdge(
     parentFile: fromFile,
     mountPath,
   });
+}
+
+function propagateMountThroughReexports(
+  edges: Map<string, MountEdge>,
+  reexportTargets: Map<string, string>,
+): void {
+  // Resolve multi-hop re-exports: routes/index.ts → routes/v1/index.ts → …
+  const resolvedTargets = new Map<string, string>();
+  for (const [aliasFile, targetFile] of reexportTargets) {
+    let current = targetFile;
+    const visited = new Set<string>();
+    while (reexportTargets.has(current) && !visited.has(current)) {
+      visited.add(current);
+      current = reexportTargets.get(current)!;
+    }
+    resolvedTargets.set(aliasFile, current);
+  }
+
+  // When a barrel file is mounted, apply the same mount to the real router module
+  for (const [aliasFile, targetFile] of resolvedTargets) {
+    const aliasEdge = edges.get(aliasFile);
+    if (!aliasEdge || edges.has(targetFile)) continue;
+    edges.set(targetFile, { ...aliasEdge });
+  }
 }
 
 function collectMountEdges(
@@ -167,19 +228,18 @@ function collectMountEdges(
 
       if (prop.name !== "use") return;
 
-      if (arg1 && t.isExpression(arg1) && t.isIdentifier(arg1)) {
-        pushMountEdge(edges, fromFile, bindings, arg1, getStringLiteral(arg0) ?? "");
-        return;
-      }
-
-      if (
-        arg0 &&
-        t.isExpression(arg0) &&
-        t.isIdentifier(arg0) &&
-        !getStringLiteral(arg0)
-      ) {
-        pushMountEdge(edges, fromFile, bindings, arg0, "");
-      }
+      const useCall = parseUseCall(
+        path.node.callee.object.name,
+        path.node.arguments,
+      );
+      if (!useCall) return;
+      pushMountEdge(
+        edges,
+        fromFile,
+        bindings,
+        useCall.routerIdent,
+        useCall.mountPath,
+      );
     },
   });
 
@@ -232,6 +292,26 @@ export async function buildGlobalMountMap(
       }
     }
   }
+
+  const reexportTargets = new Map<string, string>();
+  for (const file of files) {
+    let code: string;
+    try {
+      code = await fs.readFile(file.absolutePath);
+    } catch {
+      continue;
+    }
+    const rel = file.relativePath.replace(/\\/g, "/");
+    const parsed = parseSource(code, rel);
+    if (!parsed) continue;
+    const bindings = collectModuleBindings(parsed, rel, fileIndex);
+    const target = resolveDefaultExportTarget(parsed, rel, fileIndex, bindings);
+    if (target && target !== rel) {
+      reexportTargets.set(rel, target);
+    }
+  }
+
+  propagateMountThroughReexports(edges, reexportTargets);
 
   const result: GlobalMountMap = new Map();
   for (const file of fileIndex) {

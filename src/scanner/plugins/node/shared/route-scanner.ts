@@ -28,6 +28,7 @@ import * as t from "@babel/types";
 import type { NodePath } from "@babel/traverse";
 import { generateId } from "@/utils/id";
 import { buildGlobalMountMap } from "./mount-resolver";
+import { parseUseCall } from "./mount-args";
 
 export interface RouteCallPattern {
   /** Object names: router, app, fastify, server, etc. */
@@ -35,18 +36,6 @@ export interface RouteCallPattern {
   /** Also match CallExpression where callee is identifier (Hono) */
   allowBareCalls?: boolean;
 }
-
-const DEFAULT_RECEIVERS = [
-  "router",
-  "app",
-  "server",
-  "fastify",
-  "api",
-  "route",
-  "routes",
-  "hono",
-  "elysia",
-];
 
 export async function scanWithRoutePatterns(
   ctx: ScanContext,
@@ -71,7 +60,6 @@ export async function scanWithRoutePatterns(
     return endpoints;
   }
 
-  const receivers = new Set([...DEFAULT_RECEIVERS, ...pattern.receivers]);
   const globalMounts = await buildGlobalMountMap(ctx.fs, files);
   const fileIndex = new Set(files.map((f) => f.relativePath.replace(/\\/g, "/")));
   const fileCache = new Map<string, NonNullable<ReturnType<typeof parseSource>>>();
@@ -109,7 +97,7 @@ export async function scanWithRoutePatterns(
     if (!parsed) continue;
 
     const routePrefixes = extractRoutePrefixes(parsed);
-    const mountPrefixes = extractMountPrefixes(parsed, receivers);
+    const localMountGraph = extractLocalMountGraph(parsed);
 
     traverseAst(parsed, {
       CallExpression(path: NodePath<t.CallExpression>) {
@@ -120,7 +108,7 @@ export async function scanWithRoutePatterns(
           routeCall;
 
         const globalPrefix = globalMounts.get(relFile) ?? "";
-        const localMount = mountPrefixes.get(receiver) ?? "";
+        const localMount = composeLocalMountPrefix(localMountGraph, receiver);
         const routerPrefix = routePrefixes.get(receiver) ?? "";
         const fullPath = normalizeRoutePath(
           routePath,
@@ -335,12 +323,16 @@ function extractPrefixFromRegisterOptions(arg: t.Node | undefined): string {
   return "";
 }
 
-function extractMountPrefixes(
+interface LocalMountEdge {
+  parent: string;
+  mountPath: string;
+}
+
+function extractLocalMountGraph(
   parsed: ReturnType<typeof parseSource>,
-  receivers: Set<string>,
-): Map<string, string> {
-  const mounts = new Map<string, string>();
-  if (!parsed) return mounts;
+): Map<string, LocalMountEdge> {
+  const graph = new Map<string, LocalMountEdge>();
+  if (!parsed) return graph;
 
   traverseAst(parsed, {
     CallExpression(path: NodePath<t.CallExpression>) {
@@ -348,9 +340,8 @@ function extractMountPrefixes(
       const prop = path.node.callee.property;
       if (!t.isIdentifier(prop)) return;
       if (!t.isIdentifier(path.node.callee.object)) return;
-      const receiver = path.node.callee.object.name;
-      if (!receivers.has(receiver)) return;
 
+      const parent = path.node.callee.object.name;
       const arg0 = path.node.arguments[0];
       const arg1 = path.node.arguments[1];
 
@@ -360,26 +351,41 @@ function extractMountPrefixes(
           arg1 && t.isExpression(arg1)
             ? extractPrefixFromRegisterOptions(arg1)
             : "";
-        mounts.set(arg0.name, mountPath);
+        graph.set(arg0.name, { parent, mountPath });
         return;
       }
 
       if (prop.name !== "use") return;
 
-      if (arg1 && t.isExpression(arg1) && t.isIdentifier(arg1)) {
-        const mountPath = getStringLiteral(arg0) ?? "";
-        mounts.set(arg1.name, mountPath);
-      } else if (
-        arg0 &&
-        t.isExpression(arg0) &&
-        t.isIdentifier(arg0) &&
-        !getStringLiteral(arg0)
-      ) {
-        mounts.set(arg0.name, "");
-      }
+      const useCall = parseUseCall(parent, path.node.arguments);
+      if (!useCall) return;
+      graph.set(useCall.routerIdent.name, {
+        parent,
+        mountPath: useCall.mountPath,
+      });
     },
   });
-  return mounts;
+
+  return graph;
+}
+
+function composeLocalMountPrefix(
+  graph: Map<string, LocalMountEdge>,
+  receiver: string,
+): string {
+  const parts: string[] = [];
+  let current: string | undefined = receiver;
+  const visited = new Set<string>();
+
+  while (current && graph.has(current) && !visited.has(current)) {
+    visited.add(current);
+    const edge = graph.get(current)!;
+    if (edge.mountPath) parts.unshift(edge.mountPath);
+    current = edge.parent;
+  }
+
+  if (parts.length === 0) return "";
+  return normalizeRoutePath(parts.join(""));
 }
 
 function deriveFolder(relativePath: string, routePath: string): string[] {

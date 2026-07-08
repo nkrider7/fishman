@@ -21,10 +21,20 @@ export interface PackageJson {
   devDependencies?: Record<string, string>;
 }
 
+export interface PythonProjectManifest {
+  dependencies: Record<string, string>;
+  pythonVersion?: string;
+  framework?: string | null;
+  entryFiles?: string[];
+  baseUrl?: string;
+  environment?: Record<string, string>;
+}
+
 export interface DetectionContext {
   projectPath: string;
   fs: FileSystemAdapter;
   packageJson?: PackageJson;
+  pythonProject?: PythonProjectManifest;
 }
 
 export interface ScanContext extends DetectionContext {

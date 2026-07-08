@@ -5,6 +5,8 @@ import type { ScanRunOptions } from "./scan-options";
 import { readPackageJson } from "../utils/file-discovery";
 import { scannerRegistry } from "./registry";
 import { nodeLanguagePlugin } from "../language/node-plugin";
+import { pythonLanguagePlugin } from "../language/python-plugin";
+import { detectPythonProject } from "../plugins/python/shared/project-detector";
 
 let initialized = false;
 
@@ -12,6 +14,7 @@ export function initializeScanner(
   registry: ScannerPluginRegistry = scannerRegistry,
 ): void {
   if (initialized) return;
+  registry.registerLanguage(pythonLanguagePlugin);
   registry.registerLanguage(nodeLanguagePlugin);
   initialized = true;
 }
@@ -32,7 +35,7 @@ export async function scanProject(
   });
 
   const packageJson = (await readPackageJson(fs, options.projectPath)) ?? {};
-  const detectionCtx = {
+  let detectionCtx: import("./types").DetectionContext = {
     projectPath: options.projectPath,
     fs,
     packageJson,
@@ -49,13 +52,31 @@ export async function scanProject(
       warnings: [
         {
           message:
-            "Could not detect project language. Supported: Node.js (package.json).",
+            "Could not detect project language. Supported: Python (requirements.txt, pyproject.toml) and Node.js (package.json).",
           severity: "error",
         },
       ],
       scannedFiles: 0,
       durationMs: Date.now() - start,
     };
+  }
+
+  if (language.id === "python") {
+    const pythonProjectInfo = await detectPythonProject(fs, options.projectPath);
+    detectionCtx = {
+      ...detectionCtx,
+      pythonProject: {
+        dependencies: pythonProjectInfo.dependencies,
+        pythonVersion: pythonProjectInfo.pythonVersion,
+        framework: pythonProjectInfo.framework,
+        entryFiles: pythonProjectInfo.entryFiles,
+        baseUrl: pythonProjectInfo.baseUrl,
+        environment: pythonProjectInfo.environment,
+      },
+    };
+    for (const message of pythonProjectInfo.warnings) {
+      warnings.push({ message, severity: "warning" });
+    }
   }
 
   options.onProgress?.({
