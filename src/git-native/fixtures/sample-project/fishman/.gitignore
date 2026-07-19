@@ -5,8 +5,9 @@ cache/
 temp/
 .fishman/
 
-# Secrets — never commit
+# Secrets — never commit (except test fixtures under this tree)
 *.secret.json
+!environments/local.secret.json
 .env.secret
 .env.local
 *.local.json

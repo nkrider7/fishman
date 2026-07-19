@@ -101,7 +101,7 @@ export const openConflictFishRequest = createAsyncThunk(
       dispatch(setGitError(`No open collection request for ${path}`));
       return null;
     }
-    await dispatch(openRequestTab(req));
+    await dispatch(openRequestTab({ savedRequest: req }));
     dispatch(setGitView("changes"));
     return req.id;
   },

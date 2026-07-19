@@ -173,11 +173,6 @@ async function resolveHeadOid(projectPath: string): Promise<string | null> {
   }
 }
 
-/** True when HEAD does not resolve to a commit yet. */
-async function isUnbornRepo(projectPath: string): Promise<boolean> {
-  return (await resolveHeadOid(projectPath)) == null;
-}
-
 /**
  * Recursively list branch names under `.git/refs/heads` as a FS fallback.
  * Nested names like `feature/foo` become `feature/foo`.

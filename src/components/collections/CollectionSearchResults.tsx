@@ -52,7 +52,7 @@ export function CollectionSearchResults({ query }: { query: string }) {
           <button
             type="button"
             className="flex h-8 w-full items-center gap-2 px-3 text-left text-xs hover:bg-muted/50"
-            onClick={() => void dispatch(openRequestTab(row))}
+            onClick={() => void dispatch(openRequestTab({ savedRequest: row }))}
             title={`${entry.method} ${entry.url}`}
           >
             <span
