@@ -278,13 +278,20 @@ export const saveRequestToDb = createAsyncThunk(
       state.collections.sourceMode === "filesystem" &&
       state.collections.filesystemRootPath
     ) {
-      const { saveRequestOnDisk } = await import("@/git-native");
+      const { saveRequestOnDisk, markSelfWrite } = await import("@/git-native");
       const saved = await saveRequestOnDisk({
         request,
         collectionId: collectionId ?? request.collectionId ?? null,
         folders: state.collections.folders,
         workspaceRootPath: state.collections.filesystemRootPath,
       });
+      if (saved.source_path) {
+        const root = state.collections.filesystemRootPath.replace(/\/$/, "");
+        markSelfWrite([
+          `${root}/${saved.source_path}`,
+          saved.source_path,
+        ]);
+      }
       // Refresh Git Changes only — avoid full tree reparse (collapse / flicker).
       void dispatch(
         (await import("../thunks/gitThunks")).refreshGitStatus(),

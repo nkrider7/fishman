@@ -16,6 +16,7 @@ import collectionSettingsReducer from "./slices/collectionSettingsSlice";
 import networkLogReducer from "./slices/networkLogSlice";
 import gitReducer from "./slices/gitSlice";
 import apiTestingReducer from "./slices/apiTestingSlice";
+import filesystemSyncReducer from "./slices/filesystemSyncSlice";
 import { sendRequestThunk } from "./thunks/sendRequest";
 
 export const store = configureStore({
@@ -37,6 +38,7 @@ export const store = configureStore({
     networkLog: networkLogReducer,
     git: gitReducer,
     apiTesting: apiTestingReducer,
+    filesystemSync: filesystemSyncReducer,
   },
 });
 

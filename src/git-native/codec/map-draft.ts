@@ -8,6 +8,11 @@ import type {
   RequestScripts,
 } from "@/types/request";
 import { EMPTY_SCRIPTS, createEmptyRequest } from "@/types/request";
+import {
+  ensureGraphQLConfig,
+  syncGraphQLBody,
+  type GraphQLConfig,
+} from "@/graphql";
 import type {
   FishAuth,
   FishBody,
@@ -114,6 +119,24 @@ function bodyToFish(draft: RequestDraft): FishBody {
       formData: formDataToFish(draft.formDataFields ?? []),
     };
   }
+  if (draft.bodyType === "graphql") {
+    const graphql = ensureGraphQLConfig(draft);
+    return {
+      type: "graphql",
+      content: graphql ? syncGraphQLBody(graphql) : (draft.body ?? ""),
+      ...(graphql
+        ? {
+            graphql: {
+              query: graphql.query,
+              variables: graphql.variables,
+              operationName: graphql.operationName,
+              schemaSource: graphql.schemaSource,
+              transport: graphql.transport,
+            },
+          }
+        : {}),
+    };
+  }
   return {
     type: draft.bodyType as FishBody["type"],
     content: draft.body ?? "",
@@ -124,6 +147,7 @@ function bodyFromFish(body: FishBody | undefined): {
   bodyType: BodyType;
   body: string;
   formDataFields: FormDataField[];
+  graphql?: GraphQLConfig;
 } {
   if (!body || body.type === "none") {
     return { bodyType: "none", body: "", formDataFields: [] };
@@ -133,6 +157,27 @@ function bodyFromFish(body: FishBody | undefined): {
       bodyType: "form-data",
       body: "",
       formDataFields: formDataFromFish(body.formData),
+    };
+  }
+  if (body.type === "graphql") {
+    const structured = body.graphql;
+    const graphql: GraphQLConfig | undefined = structured
+      ? {
+          query: structured.query ?? "",
+          variables: structured.variables ?? "{\n  \n}",
+          operationName: structured.operationName ?? null,
+          schemaSource: structured.schemaSource ?? "none",
+          transport: structured.transport ?? "http",
+        }
+      : ensureGraphQLConfig({
+          bodyType: "graphql",
+          body: body.content ?? "",
+        });
+    return {
+      bodyType: "graphql",
+      body: body.content || (graphql ? syncGraphQLBody(graphql) : ""),
+      formDataFields: [],
+      graphql,
     };
   }
   return {
@@ -171,7 +216,7 @@ export function fishRequestToDraft(
   req: FishRequest,
   options?: { collectionId?: string },
 ): RequestDraft {
-  const { bodyType, body, formDataFields } = bodyFromFish(req.body);
+  const { bodyType, body, formDataFields, graphql } = bodyFromFish(req.body);
   const base = createEmptyRequest();
   return {
     ...base,
@@ -184,6 +229,7 @@ export function fishRequestToDraft(
     bodyType,
     body,
     formDataFields,
+    graphql,
     auth: authFromFish(req.auth),
     scripts: scriptsFromFish(req.scripts),
     tags: req.tags ?? [],

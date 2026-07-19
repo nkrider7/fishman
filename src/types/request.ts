@@ -1,5 +1,13 @@
 import type { HttpMethodName } from "@/http-methods/types";
 import { HTTP_METHOD_ORDER } from "@/http-methods/registry";
+import type { GraphQLConfig } from "@/graphql/types";
+import {
+  createDefaultGraphQLConfig,
+  ensureGraphQLConfig,
+  syncGraphQLBody,
+} from "@/graphql";
+
+export type { GraphQLConfig };
 
 /** Canonical HTTP methods — driven by the method registry. */
 export type HttpMethod = HttpMethodName;
@@ -100,8 +108,14 @@ export interface RequestDraft {
   params: KeyValue[];
   headers: KeyValue[];
   bodyType: BodyType;
+  /** Wire body. For GraphQL, kept in sync with `graphql` via sync helpers. */
   body: string;
   formDataFields: FormDataField[];
+  /**
+   * Structured GraphQL editors state. Present when bodyType is graphql
+   * (or retained when switching away so data is not lost).
+   */
+  graphql?: GraphQLConfig;
   auth: AuthConfig;
   scripts: RequestScripts;
   /** Tags for collection runner include/exclude filters. */
@@ -167,6 +181,53 @@ export function createEmptyRequest(name = "Untitled Request"): RequestDraft {
   };
 }
 
+/** Create a POST GraphQL request with a starter query. */
+export function createGraphQLRequest(name = "GraphQL Request"): RequestDraft {
+  const graphql = createDefaultGraphQLConfig();
+  return {
+    ...createEmptyRequest(name),
+    method: "POST",
+    bodyType: "graphql",
+    graphql,
+    body: syncGraphQLBody(graphql),
+  };
+}
+
+/**
+ * Apply GraphQL field updates and keep `body` wire JSON in sync.
+ * Prefer GET→POST when switching into GraphQL if the method cannot carry a body.
+ */
+export function withGraphQLConfig(
+  draft: RequestDraft,
+  graphql: GraphQLConfig,
+  options?: { ensurePostMethod?: boolean },
+): Partial<RequestDraft> {
+  const changes: Partial<RequestDraft> = {
+    graphql,
+    body: syncGraphQLBody(graphql),
+    bodyType: "graphql",
+  };
+  if (options?.ensurePostMethod) {
+    const noBodyMethods = new Set(["GET", "HEAD", "OPTIONS", "TRACE", "CONNECT"]);
+    if (noBodyMethods.has(draft.method)) {
+      changes.method = "POST";
+    }
+  }
+  return changes;
+}
+
+/** Hydrate graphql from body when loading saved requests. */
+export function hydrateGraphQLOnLoad(draft: RequestDraft): RequestDraft {
+  if (draft.bodyType !== "graphql") return draft;
+  const graphql = ensureGraphQLConfig(draft);
+  if (!graphql) return draft;
+  return {
+    ...draft,
+    graphql,
+    body: draft.body?.trim() ? draft.body : syncGraphQLBody(graphql),
+  };
+}
+
 export function createFormDataField(
   type: FormDataFieldType = "text",
 ): FormDataField {
@@ -183,13 +244,17 @@ export function serializeBodyForStorage(request: RequestDraft): string {
   if (request.bodyType === "form-data") {
     return JSON.stringify(request.formDataFields ?? []);
   }
+  if (request.bodyType === "graphql") {
+    const graphql = ensureGraphQLConfig(request);
+    return graphql ? syncGraphQLBody(graphql) : request.body;
+  }
   return request.body;
 }
 
 export function deserializeBodyFromStorage(
   bodyType: BodyType,
   bodyJson: string,
-): Pick<RequestDraft, "body" | "formDataFields"> {
+): Pick<RequestDraft, "body" | "formDataFields" | "graphql"> {
   if (bodyType === "form-data") {
     try {
       const parsed: unknown = JSON.parse(bodyJson || "[]");
@@ -203,6 +268,17 @@ export function deserializeBodyFromStorage(
       // Legacy plain-text body stored before form-data support
     }
     return { body: "", formDataFields: [] };
+  }
+  if (bodyType === "graphql") {
+    const graphql = ensureGraphQLConfig({
+      bodyType: "graphql",
+      body: bodyJson || "",
+    });
+    return {
+      body: bodyJson || (graphql ? syncGraphQLBody(graphql) : ""),
+      formDataFields: [],
+      graphql,
+    };
   }
   return { body: bodyJson || "", formDataFields: [] };
 }

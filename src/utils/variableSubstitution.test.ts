@@ -80,9 +80,30 @@ describe("substituteRequestDraft", () => {
     });
 
     expect(resolved.url).toBe("https://api.test/users");
-    expect(resolved.params[0].value).toBe("secret");
-    expect(resolved.headers[0].value).toBe("Bearer secret");
+    expect(resolved.params[0]?.value).toBe("secret");
+    expect(resolved.headers[0]?.value).toBe("Bearer secret");
     expect(resolved.body).toBe('{"id":"secret"}');
     expect(resolved.auth.bearer?.token).toBe("secret");
+  });
+
+  it("substitutes GraphQL query and variables", () => {
+    const draft: RequestDraft = {
+      ...createEmptyRequest("GQL"),
+      bodyType: "graphql",
+      body: "",
+      graphql: {
+        query: "query { user(id: \"{{userId}}\") { id } }",
+        variables: '{ "token": "{{token}}" }',
+        operationName: null,
+      },
+    };
+
+    const resolved = substituteRequestDraft(draft, {
+      userId: "42",
+      token: "abc",
+    });
+
+    expect(resolved.graphql?.query).toContain('"42"');
+    expect(resolved.graphql?.variables).toContain("abc");
   });
 });

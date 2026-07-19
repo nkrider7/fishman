@@ -542,7 +542,7 @@ export function requestToRow(request: RequestDraft, collectionId?: string | null
 
 export function rowToRequest(row: SavedRequest): RequestDraft {
   const bodyType = row.body_type as RequestDraft["bodyType"];
-  const { body, formDataFields } = deserializeBodyFromStorage(
+  const { body, formDataFields, graphql } = deserializeBodyFromStorage(
     bodyType,
     row.body_json || "",
   );
@@ -557,6 +557,7 @@ export function rowToRequest(row: SavedRequest): RequestDraft {
     bodyType,
     body,
     formDataFields,
+    graphql,
     auth: JSON.parse(row.auth_json || '{"type":"none"}'),
     scripts: parseScriptsJson(row.scripts_json),
     tags: parseTagsJson(row.tags_json),

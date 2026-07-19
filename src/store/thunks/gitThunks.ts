@@ -37,6 +37,11 @@ import {
   planFilesystemDraftResync,
 } from "./filesystem-draft-resync";
 import { closeTabsForDeletedRequests } from "./closeTabsForDeletedRequests";
+import {
+  startFilesystemWatcher,
+  stopFilesystemWatcher,
+} from "./filesystemWatcherThunks";
+import { cancelFilesystemAutoSaves } from "./filesystemAutoSaveThunks";
 
 export type GitProjectBinding = {
   projectPath: string;
@@ -54,6 +59,8 @@ function persistActiveWorkspaceGitBinding(
 export const closeFilesystemProject = createAsyncThunk(
   "git/closeFilesystemProject",
   async (_, { dispatch, getState }) => {
+    await dispatch(stopFilesystemWatcher());
+    await dispatch(cancelFilesystemAutoSaves());
     dispatch(clearGitProject());
     dispatch(clearFilesystemCollections());
     persistActiveWorkspaceGitBinding(getState() as RootState, null);
@@ -69,6 +76,9 @@ export const closeFilesystemProject = createAsyncThunk(
 export const rebindGitProject = createAsyncThunk(
   "git/rebindProject",
   async (binding: GitProjectBinding | null, { dispatch, getState }) => {
+    await dispatch(stopFilesystemWatcher());
+    await dispatch(cancelFilesystemAutoSaves());
+
     if (!binding) {
       dispatch(clearGitProject());
       dispatch(clearFilesystemCollections());
@@ -111,6 +121,7 @@ export const rebindGitProject = createAsyncThunk(
 
       await refreshAll(dispatch, result.projectPath);
       persistActiveWorkspaceGitBinding(getState() as RootState, nextBinding);
+      void dispatch(startFilesystemWatcher());
       return result;
     } catch (error) {
       dispatch(clearGitProject());
@@ -216,6 +227,8 @@ export const openProjectAndGitUi = createAsyncThunk(
 
       await refreshAll(dispatch, result.projectPath);
       await dispatch(openGitUiTab());
+
+      void dispatch(startFilesystemWatcher());
 
       dispatch(
         setGitSuccess(
@@ -611,6 +624,8 @@ export const initializeCollectionGit = createAsyncThunk(
       dispatch(setSidebarView("collections"));
       await dispatch(openGitUiTab());
       dispatch(setGitView("changes"));
+
+      void dispatch(startFilesystemWatcher());
 
       dispatch(
         setGitSuccess(

@@ -4,15 +4,14 @@ import {
   backToApiTestingConfig,
   patchApiTestingConfig,
   replaceApiTestingConfig,
+  setApiTestingError,
   setApiTestingResultsTab,
 } from "@/store/slices/apiTestingSlice";
 import {
   startApiTest,
   stopApiTest,
 } from "@/store/thunks/apiTestingThunks";
-import {
-  configFromActiveRequest,
-} from "@/api-testing";
+import { configFromActiveRequest } from "@/api-testing";
 import {
   Dialog,
   DialogContent,
@@ -50,7 +49,15 @@ export function ApiTestingDialog() {
   };
 
   const useActiveRequest = () => {
-    if (!draft) return;
+    if (!draft) {
+      dispatch(
+        setApiTestingError(
+          "No active request tab — open a request first, then try again.",
+        ),
+      );
+      return;
+    }
+    dispatch(setApiTestingError(null));
     dispatch(
       patchApiTestingConfig(
         configFromActiveRequest({
@@ -67,6 +74,14 @@ export function ApiTestingDialog() {
     );
   };
 
+  const goBack = () => {
+    if (running) {
+      void dispatch(stopApiTest());
+      return;
+    }
+    dispatch(backToApiTestingConfig());
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -76,7 +91,20 @@ export function ApiTestingDialog() {
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (running) {
+            e.preventDefault();
+            const ok = window.confirm(
+              "A test is still running. Stop it and close?",
+            );
+            if (ok) {
+              void dispatch(stopApiTest());
+              dispatch(setApiTestingOpen(false));
+            }
+            return;
+          }
+          // Allow Escape to close when idle
+        }}
       >
         <TooltipProvider delayDuration={180} skipDelayDuration={0}>
           <DialogHeader className="shrink-0 border-b border-border px-5 py-3 text-left">
@@ -91,12 +119,19 @@ export function ApiTestingDialog() {
           {view === "config" ? (
             <ConfigView
               config={config}
-              onChange={(patch) => dispatch(patchApiTestingConfig(patch))}
-              onReplace={(next) => dispatch(replaceApiTestingConfig(next))}
+              onChange={(patch) => {
+                dispatch(setApiTestingError(null));
+                dispatch(patchApiTestingConfig(patch));
+              }}
+              onReplace={(next) => {
+                dispatch(setApiTestingError(null));
+                dispatch(replaceApiTestingConfig(next));
+              }}
               onUseActiveRequest={useActiveRequest}
               onRun={() => void dispatch(startApiTest())}
               disabled={running}
               error={lastError}
+              hasActiveRequest={Boolean(draft)}
             />
           ) : (
             <ResultsView
@@ -105,7 +140,8 @@ export function ApiTestingDialog() {
               resultsTab={resultsTab}
               onResultsTab={(tab) => dispatch(setApiTestingResultsTab(tab))}
               onStop={() => void dispatch(stopApiTest())}
-              onBack={() => dispatch(backToApiTestingConfig())}
+              onBack={goBack}
+              onRunAgain={() => void dispatch(startApiTest())}
               running={running}
             />
           )}

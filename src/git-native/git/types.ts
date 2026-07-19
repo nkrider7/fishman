@@ -79,4 +79,10 @@ export interface GitOperations {
     path: string,
     options?: { staged?: boolean; status?: GitFileStatus },
   ): Promise<import("./file-diff").GitFileDiff>;
+  /** Resolve a merge conflict by taking ours (HEAD) or theirs (MERGE_HEAD). */
+  resolveConflict(
+    projectPath: string,
+    path: string,
+    side: "ours" | "theirs",
+  ): Promise<void>;
 }

@@ -10,7 +10,17 @@ import {
   stageGitPaths,
   unstageGitPaths,
 } from "@/store/thunks/gitThunks";
+import { canCommitWithConflicts, countConflictedPaths } from "@/git-native";
+import { GitConflictBanner } from "./GitConflictBanner";
 import { GitFileList } from "./GitFileList";
+
+function sortConflictFirst<T extends { status: string }>(files: T[]): T[] {
+  return [...files].sort((a, b) => {
+    const ac = a.status === "conflicted" ? 0 : 1;
+    const bc = b.status === "conflicted" ? 0 : 1;
+    return ac - bc;
+  });
+}
 
 export function GitChangesPanel() {
   const dispatch = useAppDispatch();
@@ -21,9 +31,16 @@ export function GitChangesPanel() {
   const commits = useAppSelector((s) => s.git.commits);
 
   const changes = status?.changes ?? [];
-  const staged = changes.filter((c) => c.staged);
-  const unstaged = changes.filter((c) => !c.staged);
-  const canCommit = Boolean(message.trim()) && staged.length > 0 && !busy;
+  const staged = sortConflictFirst(changes.filter((c) => c.staged));
+  const unstaged = sortConflictFirst(changes.filter((c) => !c.staged));
+  const conflictedCount = countConflictedPaths(changes);
+  const commitGate = canCommitWithConflicts({
+    message,
+    stagedCount: staged.length,
+    conflictedCount,
+    busy,
+  });
+  const canCommit = commitGate.ok;
 
   const stageAll = () => {
     void dispatch(stageGitPaths(unstaged.map((c) => c.path)));
@@ -44,6 +61,7 @@ export function GitChangesPanel() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <GitConflictBanner />
       <div className="shrink-0 space-y-2 border-b border-border p-3">
         <textarea
           className="min-h-[72px] w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-xs outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-ring"
@@ -68,17 +86,14 @@ export function GitChangesPanel() {
           size="sm"
           disabled={!canCommit}
           onClick={tryCommit}
-          title={
-            staged.length === 0
-              ? "Stage files before committing"
-              : !message.trim()
-                ? "Enter a commit message"
-                : "Commit (Ctrl/Cmd+Enter)"
-          }
+          title={commitGate.reason ?? "Commit (Ctrl/Cmd+Enter)"}
         >
           Commit Changes
           {staged.length > 0 ? ` (${staged.length})` : ""}
         </Button>
+        {!canCommit && commitGate.reason ? (
+          <p className="text-[10px] text-muted-foreground">{commitGate.reason}</p>
+        ) : null}
         {unstaged.length > 0 && staged.length === 0 ? (
           <p className="text-[10px] leading-relaxed text-muted-foreground">
             Tip: click{" "}
@@ -102,8 +117,8 @@ export function GitChangesPanel() {
               Nothing to commit
             </p>
             <p className="text-[11px] text-muted-foreground/90">
-              Create or save requests (Ctrl+S) — they write into{" "}
-              <code className="text-[10px]">fishman/</code> and show up here.
+              Edits auto-save into{" "}
+              <code className="text-[10px]">fishman/</code> — or press Ctrl+S.
             </p>
             <Button
               variant="outline"

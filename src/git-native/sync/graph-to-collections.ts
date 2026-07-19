@@ -74,7 +74,10 @@ export function graphToCollectionTree(
         sort_order: reqNode.request.seq ?? row.sort_order,
         created_at: Number.isFinite(created) ? created : row.created_at,
         updated_at: Number.isFinite(updated) ? updated : row.updated_at,
-      });
+        source_kind: "filesystem",
+        source_path: reqNode.relativePath,
+        sync_status: "synced",
+      } as SavedRequest);
     }
   };
 

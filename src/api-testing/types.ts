@@ -13,6 +13,7 @@ export type RampCurve = "linear" | "stepped" | "exponential";
 export type ApiTestPhase =
   | "idle"
   | "running"
+  | "stopping"
   | "completed"
   | "cancelled"
   | "failed";
@@ -91,6 +92,12 @@ export interface ApiTestMetrics {
   throughputRps: number;
   statusCounts: Record<string, number>;
   buckets: LatencyBuckets;
+  /** Response Check mode only — requests that met status + latency. */
+  assertionPassCount: number;
+  /** Response Check mode only — requests that failed assertions. */
+  assertionFailCount: number;
+  /** Total errors seen (may exceed `errors.length` when samples are capped). */
+  totalErrorSamples: number;
 }
 
 export interface TimelineRow {
@@ -178,5 +185,8 @@ export function emptyMetrics(): ApiTestMetrics {
     throughputRps: 0,
     statusCounts: {},
     buckets: emptyBuckets(),
+    assertionPassCount: 0,
+    assertionFailCount: 0,
+    totalErrorSamples: 0,
   };
 }

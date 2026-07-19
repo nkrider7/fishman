@@ -12,12 +12,16 @@ interface ApiTestingState {
   resultsTab: ResultsTab;
   config: ApiTestConfig;
   run: ApiTestRunSnapshot;
-  /** True while engine loop is active. */
+  /**
+   * True while a run is active (running or draining after stop).
+   * Derived from snapshots in setApiTestingRunSnapshot; thunks may set it
+   * optimistically on start / clear on abort completion.
+   */
   running: boolean;
   lastError: string | null;
 }
 
-const idleRun = (): ApiTestRunSnapshot => ({
+export const idleRun = (): ApiTestRunSnapshot => ({
   phase: "idle",
   startedAt: null,
   elapsedMs: 0,
@@ -29,6 +33,10 @@ const idleRun = (): ApiTestRunSnapshot => ({
   breakingPoint: null,
   spikePhase: null,
 });
+
+function isActivePhase(phase: ApiTestRunSnapshot["phase"]): boolean {
+  return phase === "running" || phase === "stopping";
+}
 
 const initialState: ApiTestingState = {
   view: "config",
@@ -63,20 +71,28 @@ const apiTestingSlice = createSlice({
       action: PayloadAction<ApiTestRunSnapshot>,
     ) => {
       state.run = action.payload;
-      state.running =
-        action.payload.phase === "running" ||
-        (action.payload.phase === "idle" && false);
-      if (action.payload.phase === "running") {
-        state.running = true;
+      state.running = isActivePhase(action.payload.phase);
+      if (isActivePhase(action.payload.phase)) {
         state.view = "results";
       } else if (
         action.payload.phase === "completed" ||
         action.payload.phase === "cancelled" ||
         action.payload.phase === "failed"
       ) {
-        state.running = false;
         state.view = "results";
       }
+    },
+    /** Optimistic start before first engine tick. */
+    beginApiTestingRun: (state) => {
+      state.lastError = null;
+      state.running = true;
+      state.view = "results";
+      state.resultsTab = "summary";
+      state.run = {
+        ...idleRun(),
+        phase: "running",
+        startedAt: Date.now(),
+      };
     },
     setApiTestingRunning: (state, action: PayloadAction<boolean>) => {
       state.running = action.payload;
@@ -91,8 +107,10 @@ const apiTestingSlice = createSlice({
       state.lastError = null;
     },
     backToApiTestingConfig: (state) => {
+      // Never leave a live run behind — caller must abort first.
+      if (state.running) return;
       state.view = "config";
-      state.running = false;
+      state.lastError = null;
     },
   },
 });
@@ -103,6 +121,7 @@ export const {
   patchApiTestingConfig,
   replaceApiTestingConfig,
   setApiTestingRunSnapshot,
+  beginApiTestingRun,
   setApiTestingRunning,
   setApiTestingError,
   resetApiTestingRun,

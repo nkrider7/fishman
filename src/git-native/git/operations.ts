@@ -1,5 +1,4 @@
 import git from "isomorphic-git";
-import http from "isomorphic-git/http/web";
 import { remove } from "@tauri-apps/plugin-fs";
 import {
   createIsomorphicGitFs,
@@ -7,6 +6,8 @@ import {
 } from "../fs/isomorphic-git-fs";
 import { createTauriGitNativeFs } from "../fs/tauri-fs";
 import { createOnAuth, createOnAuthFailure, formatGitError } from "./auth";
+import { tauriGitHttp } from "./tauri-http";
+import { normalizeRemoteUrl } from "./remote-url";
 import { detectGit } from "./detect";
 import { buildFileDiff, decodeBlob } from "./file-diff";
 import {
@@ -277,7 +278,7 @@ async function writeBranchRef(
 
 export function createGitOperations(): GitOperations {
   const httpOpts = {
-    http,
+    http: tauriGitHttp,
     onAuth: createOnAuth(),
     onAuthFailure: createOnAuthFailure(),
   };
@@ -441,14 +442,20 @@ export function createGitOperations(): GitOperations {
 
     async addRemote(projectPath, name, url) {
       return withGitError(async () => {
+        const normalized = normalizeRemoteUrl(url);
+        if (!normalized) throw new Error("Remote URL is required");
+        if (!/^https?:\/\//i.test(normalized)) {
+          throw new Error(
+            "Use an HTTPS remote URL (e.g. https://github.com/owner/repo.git). SSH remotes are converted when possible.",
+          );
+        }
         await git.addRemote({
           ...dirOpts(projectPath),
           remote: name,
-          url: url.trim(),
+          url: normalized,
         });
       });
     },
-
     async removeRemote(projectPath, name) {
       return withGitError(async () => {
         await git.deleteRemote({
@@ -464,10 +471,12 @@ export function createGitOperations(): GitOperations {
         if (remotes.length === 0) {
           throw new Error("No remotes configured. Add a remote first.");
         }
+        const remote = remotes[0]!;
         await git.fetch({
           ...dirOpts(projectPath),
           ...httpOpts,
-          remote: remotes[0]!.name,
+          remote: remote.name,
+          url: normalizeRemoteUrl(remote.url),
           singleBranch: false,
           tags: false,
         });
@@ -477,11 +486,20 @@ export function createGitOperations(): GitOperations {
 
     async pull(projectPath) {
       return withGitError(async () => {
+        const remotes = await ops.listRemotes(projectPath);
+        if (remotes.length === 0) {
+          throw new Error("No remotes configured. Add a remote first.");
+        }
         const author = await resolveAuthor(projectPath);
+        const remote = remotes[0]!;
+        const { branch } = await resolveCurrentBranch(projectPath);
         await git.pull({
           ...dirOpts(projectPath),
           ...httpOpts,
           author,
+          remote: remote.name,
+          url: normalizeRemoteUrl(remote.url),
+          ref: branch ?? undefined,
           singleBranch: true,
         });
         lastFetchedAtByRepo.set(projectPath, Date.now());
@@ -490,9 +508,21 @@ export function createGitOperations(): GitOperations {
 
     async push(projectPath) {
       return withGitError(async () => {
+        const remotes = await ops.listRemotes(projectPath);
+        if (remotes.length === 0) {
+          throw new Error("No remotes configured. Add a remote first.");
+        }
+        const remote = remotes[0]!;
+        const { branch } = await resolveCurrentBranch(projectPath);
+        if (!branch) {
+          throw new Error("Cannot push: no current branch.");
+        }
         await git.push({
           ...dirOpts(projectPath),
           ...httpOpts,
+          remote: remote.name,
+          url: normalizeRemoteUrl(remote.url),
+          ref: branch,
         });
       });
     },
@@ -734,6 +764,53 @@ export function createGitOperations(): GitOperations {
           status,
           oldText,
           newText,
+        });
+      });
+    },
+
+    async resolveConflict(projectPath, filepath, side) {
+      return withGitError(async () => {
+        const abs = `${projectPath.replace(/\/$/, "")}/${filepath}`;
+        if (side === "ours") {
+          // Reset working tree + index entry from HEAD
+          await git.checkout({
+            ...dirOpts(projectPath),
+            force: true,
+            filepaths: [filepath],
+          });
+        } else {
+          let oid: string | null = null;
+          try {
+            oid = await git.resolveRef({
+              ...dirOpts(projectPath),
+              ref: "MERGE_HEAD",
+            });
+          } catch {
+            try {
+              oid = await git.resolveRef({
+                ...dirOpts(projectPath),
+                ref: "REBASE_HEAD",
+              });
+            } catch {
+              oid = null;
+            }
+          }
+          if (!oid) {
+            throw new Error(
+              "No MERGE_HEAD — cannot take theirs outside an active merge.",
+            );
+          }
+          const { blob } = await git.readBlob({
+            ...dirOpts(projectPath),
+            oid,
+            filepath,
+          });
+          const text = decodeBlob(blob);
+          await fs().promises.writeFile(abs, text, { encoding: "utf8" });
+        }
+        await git.add({
+          ...dirOpts(projectPath),
+          filepath,
         });
       });
     },

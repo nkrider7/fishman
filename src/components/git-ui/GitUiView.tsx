@@ -28,6 +28,7 @@ import { GitBranchSwitcher } from "./GitBranchSwitcher";
 import { GitChangesHome } from "./GitChangesHome";
 import { GitChangesPanel } from "./GitChangesPanel";
 import { GitCommitsView } from "./GitCommitsView";
+import { GitConflictActions } from "./GitConflictActions";
 import { GitDiffViewer } from "./GitDiffViewer";
 import { GitInitEmptyState } from "./GitInitEmptyState";
 import { GitRemoteEmptyState } from "./GitRemoteEmptyState";
@@ -119,12 +120,22 @@ export function GitUiView() {
       />
     );
   } else if (showDiff) {
+    const conflicted = (status?.changes ?? []).some(
+      (c) => c.path === selectedDiff?.path && c.status === "conflicted",
+    );
     main = (
-      <GitDiffViewer
-        diff={activeDiff}
-        loading={diffLoading}
-        onBack={() => void dispatch(clearGitFileDiff())}
-      />
+      <div className="flex h-full min-h-0 flex-col">
+        {conflicted && selectedDiff ? (
+          <GitConflictActions path={selectedDiff.path} />
+        ) : null}
+        <div className="min-h-0 flex-1">
+          <GitDiffViewer
+            diff={activeDiff}
+            loading={diffLoading}
+            onBack={() => void dispatch(clearGitFileDiff())}
+          />
+        </div>
+      </div>
     );
   } else if (view === "commits") {
     main = <GitCommitsView />;

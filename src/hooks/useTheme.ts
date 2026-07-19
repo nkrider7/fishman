@@ -4,6 +4,8 @@ import { loadSettings } from "@/store/slices/settingsSlice";
 import { initializeDatabase } from "@/services/dbService";
 import { bootstrapWorkspaces } from "@/workspaces";
 
+export type AppInitPhase = "boot" | "workspace" | "ready";
+
 export function useTheme() {
   const theme = useAppSelector((s) => s.settings.theme);
 
@@ -25,9 +27,10 @@ export function useTheme() {
   }, [theme]);
 }
 
-export function useAppInit() {
+export function useAppInit(): { ready: boolean; phase: AppInitPhase } {
   const dispatch = useAppDispatch();
   const [ready, setReady] = useState(false);
+  const [phase, setPhase] = useState<AppInitPhase>("boot");
 
   useEffect(() => {
     let cancelled = false;
@@ -35,27 +38,36 @@ export function useAppInit() {
     const init = async () => {
       const startedAt = Date.now();
       try {
+        setPhase("boot");
         await initializeDatabase();
-        dispatch(loadSettings());
-        await dispatch(bootstrapWorkspaces());
+        // Settings + workspace bootstrap: settings is independent of workspace list
+        // but bootstrap needs DB — run settings in parallel with bootstrap after DB.
+        setPhase("workspace");
+        await Promise.all([
+          dispatch(loadSettings()),
+          dispatch(bootstrapWorkspaces()),
+        ]);
       } finally {
         const elapsed = Date.now() - startedAt;
-        // Keep splash visible briefly only if boot was instant (avoids flash)
-        const minSplashMs = 120;
+        // Tiny hold only when boot was instant — avoids a jarring flash.
+        const minSplashMs = 80;
         if (elapsed < minSplashMs) {
           await new Promise((resolve) =>
             setTimeout(resolve, minSplashMs - elapsed),
           );
         }
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setPhase("ready");
+          setReady(true);
+        }
       }
     };
 
-    init();
+    void init();
     return () => {
       cancelled = true;
     };
   }, [dispatch]);
 
-  return ready;
+  return { ready, phase };
 }

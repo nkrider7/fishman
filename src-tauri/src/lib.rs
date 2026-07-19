@@ -1,4 +1,5 @@
 mod devtools;
+mod git_http;
 mod http;
 mod system_stats;
 
@@ -70,6 +71,7 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             http::execute_request,
+            git_http::git_http_request,
             devtools::toggle_devtools,
             system_stats::get_system_stats,
         ])

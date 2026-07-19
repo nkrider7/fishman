@@ -16,6 +16,7 @@ import type {
 import { getSandboxClient } from "../sandbox";
 import { mergeVariableMaps, resolveAllVariables } from "../variables";
 import { resolveDynamicVariablesIn } from "../builtins";
+import { graphqlFromBodyIfPresent } from "@/graphql";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -87,6 +88,18 @@ export function applyScriptRequestChanges(
   if (changes.body !== undefined) next.body = changes.body;
   if (changes.bodyType) next.bodyType = changes.bodyType;
   if (changes.auth) next.auth = changes.auth;
+
+  // Script contract: body JSON is source of truth for GraphQL — rehydrate config.
+  if (
+    (changes.body !== undefined || changes.bodyType !== undefined) &&
+    (next.bodyType === "graphql" || draft.bodyType === "graphql")
+  ) {
+    next.graphql = graphqlFromBodyIfPresent(
+      next.bodyType,
+      next.body,
+      next.graphql,
+    );
+  }
 
   if (changes.headers) {
     const existing = new Map(next.headers.map((h) => [h.key.toLowerCase(), h]));

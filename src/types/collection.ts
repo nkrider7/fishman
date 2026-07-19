@@ -97,6 +97,10 @@ export interface SavedRequest {
   sort_order: number;
   created_at: number;
   updated_at: number;
+  /** Filesystem / git-native metadata (not used for sqlite personal rows). */
+  source_kind?: CollectionSourceKind;
+  source_path?: string | null;
+  sync_status?: CollectionSyncStatus | null;
 }
 
 export type CollectionNode =

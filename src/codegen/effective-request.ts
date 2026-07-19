@@ -6,6 +6,7 @@ import {
 } from "@/utils/requestBuilder";
 import { substituteRequestDraft } from "@/utils/variableSubstitution";
 import { getFormDataFilePaths } from "@/types/request";
+import { ensureGraphQLConfig, syncGraphQLBody } from "@/graphql";
 import type { EffectiveFormField, EffectiveRequest } from "./types";
 
 /**
@@ -51,6 +52,9 @@ export function toEffectiveRequest(
         }
         return [{ key: f.key, type: "text" as const, value: f.value }];
       });
+  } else if (bodyType === "graphql") {
+    const graphql = ensureGraphQLConfig(resolved);
+    body = graphql ? syncGraphQLBody(graphql) : resolved.body || undefined;
   } else {
     body = resolved.body || undefined;
   }

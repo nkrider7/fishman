@@ -114,13 +114,17 @@ Rules:
 
 ## Roadmap (beyond codec)
 
-1. Sync engine + file watcher on `fishman/`
-2. Auto-save every edit
-3. Redux/UI: open project, Git tab, diff, conflicts
-4. isomorphic-git implementation of `GitOperations`
+1. ~~Sync engine + file watcher on `fishman/`~~ — shipped (`sync/watcher.ts` + thunks)
+2. ~~Auto-save every edit~~ — debounced scheduler (`sync/auto-save.ts`); unsaved tabs are never clobbered by disk reloads
+3. ~~Redux/UI: open project, Git tab, diff, conflicts~~ — conflict banner + ours/theirs/mark-resolved
+4. ~~isomorphic-git implementation of `GitOperations`~~ — in place
 5. Scanner → propose new/updated `.fish` without clobbering locked requests
-6. Search index, lazy load, virtual scroll for large workspaces
+6. ~~Search index, lazy load, virtual scroll for large workspaces~~ — search index + flat virtualized results; git file lists windowed
 7. Field-level merge + API change dashboard
+
+**Self-write policy:** writes mark paths for ~1.5s so the watcher ignores echo events.
+**Unsaved vs disk:** external changes refresh clean tabs; unsaved tabs keep the draft and show “Disk changed” with Reload from disk.
+**Conflicts:** no 3-way merge editor — accept ours/theirs or edit then mark resolved.
 
 ## Non-goals for the current foundation
 

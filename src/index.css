@@ -172,12 +172,12 @@ body {
   animation: brand-splash-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.brand-splash-sun {
-  animation: brand-splash-sun 5.5s linear infinite;
+.brand-splash-mark {
+  animation: brand-splash-breathe 2.8s ease-in-out infinite;
 }
 
-.brand-splash-mark {
-  animation: brand-splash-breathe 2.4s ease-in-out infinite;
+.brand-splash-sun {
+  animation: brand-splash-sun 8s linear infinite;
 }
 
 .brand-splash-bar {

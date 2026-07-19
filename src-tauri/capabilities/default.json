@@ -24,6 +24,8 @@
     "fs:allow-stat",
     "fs:allow-lstat",
     "fs:allow-copy-file",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
     "fs:allow-home-read-recursive",
     "fs:allow-home-write-recursive",
     "fs:allow-home-meta-recursive",
@@ -56,6 +58,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-set-focus",
     "core:window:allow-set-title",
+    "core:window:allow-show",
     "core:webview:allow-create-webview-window",
     "core:webview:allow-get-all-webviews"
   ]

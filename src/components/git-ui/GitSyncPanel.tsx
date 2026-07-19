@@ -1,11 +1,24 @@
-import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CheckCircle2,
+  KeyRound,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
+import {
+  getGitAuthCredentials,
+  setGitAuthCredentials,
+} from "@/git-native";
 import {
   fetchGitRemote,
   pullGitRemote,
   pushGitRemote,
 } from "@/store/thunks/gitThunks";
+import { setGitSuccess } from "@/store/slices/gitSlice";
 import { GitBranch } from "lucide-react";
 
 function formatFetched(ts: number | null): string {
@@ -25,8 +38,37 @@ export function GitSyncPanel() {
   const behind = status?.behind ?? 0;
   const upToDate = ahead === 0 && behind === 0;
 
+  const [username, setUsername] = useState("git");
+  const [password, setPassword] = useState("");
+  const [authOpen, setAuthOpen] = useState(false);
+  const [hasSavedAuth, setHasSavedAuth] = useState(false);
+
+  useEffect(() => {
+    const existing = getGitAuthCredentials();
+    if (existing) {
+      setUsername(existing.username || "git");
+      setPassword(existing.password);
+      setHasSavedAuth(true);
+    }
+  }, []);
+
+  const saveAuth = () => {
+    if (!password.trim()) {
+      setGitAuthCredentials(null);
+      setHasSavedAuth(false);
+      dispatch(setGitSuccess("Cleared saved Git credentials"));
+      return;
+    }
+    setGitAuthCredentials({
+      username: username.trim() || "git",
+      password: password.trim(),
+    });
+    setHasSavedAuth(true);
+    dispatch(setGitSuccess("Saved GitHub credentials for fetch / pull / push"));
+  };
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 p-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-5 overflow-y-auto p-6 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <GitBranch className="h-6 w-6 text-primary" />
       </div>
@@ -113,6 +155,66 @@ export function GitSyncPanel() {
           {behind} commit{behind === 1 ? "" : "s"} behind remote
         </p>
       )}
+
+      <div className="w-full max-w-sm rounded-lg border border-border bg-card/40 p-3 text-left">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 text-xs font-medium text-foreground"
+          onClick={() => setAuthOpen((o) => !o)}
+        >
+          <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+          GitHub credentials (PAT)
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {hasSavedAuth ? "Saved" : "Not set"} · {authOpen ? "Hide" : "Show"}
+          </span>
+        </button>
+        {authOpen ? (
+          <div className="mt-3 space-y-2">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Private repos need a Personal Access Token. Username can be your
+              GitHub username or <code className="text-[10px]">git</code>; paste
+              the PAT as the password.
+            </p>
+            <Input
+              className="h-8 text-xs"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+            />
+            <Input
+              className="h-8 text-xs"
+              type="password"
+              placeholder="Personal Access Token"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="h-7 flex-1 text-[11px]"
+                onClick={saveAuth}
+              >
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={() => {
+                  setPassword("");
+                  setGitAuthCredentials(null);
+                  setHasSavedAuth(false);
+                  dispatch(setGitSuccess("Cleared Git credentials"));
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

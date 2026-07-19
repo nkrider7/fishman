@@ -10,6 +10,10 @@ import {
   formatFormDataFileLabel,
   getFormDataFilePaths,
 } from "@/types/request";
+import {
+  parseLegacyGraphQLBody,
+  syncGraphQLBody,
+} from "@/graphql";
 import { generateId } from "@/utils/id";
 import type { ImportResult, ImportWarning, ImportPlugin } from "../core/types";
 
@@ -53,6 +57,11 @@ interface PostmanBody {
   urlencoded?: { key: string; value: string; disabled?: boolean }[];
   formdata?: PostmanFormDataItem[];
   options?: { raw?: { language?: string } };
+  graphql?: {
+    query?: string;
+    variables?: string;
+    operationName?: string;
+  };
 }
 
 interface PostmanEvent {
@@ -184,7 +193,7 @@ function parseFormDataItems(items: PostmanFormDataItem[]): FormDataField[] {
 
 function parseBody(
   body?: PostmanBody,
-): Pick<RequestDraft, "bodyType" | "body" | "formDataFields"> {
+): Pick<RequestDraft, "bodyType" | "body" | "formDataFields" | "graphql"> {
   if (!body) {
     return { bodyType: "none", body: "", formDataFields: [] };
   }
@@ -210,8 +219,35 @@ function parseBody(
     };
   }
 
-  if (body.mode === "graphql" && body.raw) {
-    return { bodyType: "graphql", body: body.raw, formDataFields: [] };
+  if (body.mode === "graphql") {
+    let graphql = body.graphql?.query
+      ? {
+          query: body.graphql.query,
+          variables: normalizePostmanVariables(body.graphql.variables),
+          operationName: body.graphql.operationName?.trim()
+            ? body.graphql.operationName.trim()
+            : null,
+          schemaSource: "none" as const,
+          transport: "http" as const,
+        }
+      : parseLegacyGraphQLBody(body.raw ?? "");
+
+    if (body.graphql?.query && body.raw && !body.graphql.variables) {
+      const fromRaw = parseLegacyGraphQLBody(body.raw);
+      if (!body.graphql.variables && fromRaw.variables) {
+        graphql = { ...graphql, variables: fromRaw.variables };
+      }
+      if (!body.graphql.operationName && fromRaw.operationName) {
+        graphql = { ...graphql, operationName: fromRaw.operationName };
+      }
+    }
+
+    return {
+      bodyType: "graphql",
+      body: syncGraphQLBody(graphql),
+      formDataFields: [],
+      graphql,
+    };
   }
 
   if (!body.raw) return { bodyType: "none", body: "", formDataFields: [] };
@@ -228,6 +264,24 @@ function parseBody(
   }
 
   return { bodyType: "raw", body: body.raw, formDataFields: [] };
+}
+
+function normalizePostmanVariables(variables: unknown): string {
+  if (variables == null || variables === "") return "{\n  \n}";
+  if (typeof variables === "string") {
+    const trimmed = variables.trim();
+    if (!trimmed) return "{\n  \n}";
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      return variables;
+    }
+  }
+  try {
+    return JSON.stringify(variables, null, 2);
+  } catch {
+    return "{\n  \n}";
+  }
 }
 
 function normalizeAuthEntries(
@@ -363,7 +417,7 @@ function walkItems(
     } else if (item.request) {
       const req = item.request;
       const { url, params } = parseUrl(req.url);
-      const { bodyType, body, formDataFields } = parseBody(req.body);
+      const { bodyType, body, formDataFields, graphql } = parseBody(req.body);
       const auth = req.auth?.type ? parseAuth(req.auth) : parseAuth(inheritedAuth);
 
       if (!url.trim()) {
@@ -383,6 +437,7 @@ function walkItems(
         bodyType,
         body,
         formDataFields,
+        graphql,
         auth,
         scripts: parseScripts(item.event),
         collectionId: parentId,

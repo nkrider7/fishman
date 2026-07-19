@@ -18,6 +18,10 @@ import { type QueryFallbackMethod } from "@/http-methods";
 import { updateDraft } from "@/store/slices/requestSlice";
 import { updateTab } from "@/store/slices/tabsSlice";
 import { sendRequestThunk } from "@/store/thunks/sendRequest";
+import {
+  GraphQLResponsePanel,
+  isGraphQLResponse,
+} from "@/components/graphql/GraphQLResponsePanel";
 import { cn } from "@/utils/cn";
 
 interface ResponseViewerProps {
@@ -55,14 +59,20 @@ export function ResponseViewer({ tabId }: ResponseViewerProps) {
     response?.body ?? "",
     response?.headers ?? {},
   );
+  const showGraphQLPanel =
+    Boolean(response) &&
+    (draft?.bodyType === "graphql" || isGraphQLResponse(response?.body ?? ""));
   const responseTabValue = [
     "pretty",
+    "graphql",
     "raw",
     "headers",
     "timeline",
     "tests",
   ].includes(activeTab)
-    ? activeTab
+    ? activeTab === "graphql" && !showGraphQLPanel
+      ? "pretty"
+      : activeTab
     : "pretty";
   const testResults = scriptState?.testResults ?? [];
   const hasFailedTests = testResults.some((t) => t.status === "failed");
@@ -237,6 +247,9 @@ export function ResponseViewer({ tabId }: ResponseViewerProps) {
             {(
               [
                 ["pretty", "Pretty"],
+                ...(showGraphQLPanel
+                  ? [["graphql", "GraphQL"] as const]
+                  : []),
                 ["raw", "Raw"],
                 ["headers", "Headers"],
                 ["timeline", "Timing"],
@@ -280,6 +293,19 @@ export function ResponseViewer({ tabId }: ResponseViewerProps) {
             view={bodyView}
           />
         </TabsContent>
+
+        {showGraphQLPanel ? (
+          <TabsContent
+            value="graphql"
+            className="mt-0 min-h-0 flex-1 overflow-hidden p-0 data-[state=inactive]:hidden"
+          >
+            <GraphQLResponsePanel
+              body={response.body}
+              editorTheme={editorTheme}
+              forceGraphQL={draft?.bodyType === "graphql"}
+            />
+          </TabsContent>
+        ) : null}
 
         <TabsContent
           value="raw"

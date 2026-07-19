@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
 import { useMemo, useRef, useState } from "react";
-import { useAppSelector } from "@/hooks/redux";
+import { useStore } from "react-redux";
+import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { FormDataEditor } from "@/components/request/FormDataEditor";
 import { MethodDocsPanel } from "@/components/request/MethodDocsPanel";
@@ -18,12 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAppDispatch } from "@/hooks/redux";
 import { useMonacoVariableCompletions } from "@/hooks/useMonacoVariableCompletions";
 import { updateDraft } from "@/store/slices/requestSlice";
 import { updateTab } from "@/store/slices/tabsSlice";
 import { sendRequestThunk } from "@/store/thunks/sendRequest";
 import { saveActiveTab } from "@/store/thunks/saveActiveTab";
+import { maybeScheduleAutoSaveFromTab } from "@/store/thunks/filesystemAutoSaveThunks";
+import type { RootState } from "@/store";
 import {
   BODY_TYPES,
   HTTP_METHODS,
@@ -44,6 +46,7 @@ import {
   tryFormatJson,
 } from "@/utils/requestBuilder";
 import { GenerateCodeDialog } from "@/components/codegen/GenerateCodeDialog";
+import { GraphQLBodyEditor } from "@/components/graphql/GraphQLBodyEditor";
 import { setApiTestingOpen } from "@/store/slices/uiSlice";
 import {
   patchApiTestingConfig,
@@ -51,6 +54,11 @@ import {
 import { configFromActiveRequest } from "@/api-testing";
 import { Code2, Gauge, Loader2, Minimize2, Save, Send, Sparkles } from "lucide-react";
 import { cn } from "@/utils/cn";
+import {
+  createDefaultGraphQLConfig,
+  syncGraphQLBody,
+} from "@/graphql";
+import { withGraphQLConfig } from "@/types/request";
 
 interface RequestBuilderProps {
   tabId: string;
@@ -58,15 +66,19 @@ interface RequestBuilderProps {
 
 export function RequestBuilder({ tabId }: RequestBuilderProps) {
   const dispatch = useAppDispatch();
+  const store = useStore<RootState>();
   const draft = useAppSelector((s) => s.request.drafts[tabId]);
   const loading = useAppSelector((s) => s.response.loading[tabId]);
   const theme = useAppSelector((s) => s.settings.theme);
+  const diskChanged = useAppSelector((s) =>
+    s.filesystemSync.diskChangedTabIds.includes(tabId),
+  );
   const [codegenOpen, setCodegenOpen] = useState(false);
   const { enhanceOnMount } = useMonacoVariableCompletions(draft?.collectionId);
   const formatBodyRef = useRef<() => boolean>(() => false);
 
   const bodyLanguage =
-    draft?.bodyType === "json" || draft?.bodyType === "graphql"
+    draft?.bodyType === "json"
       ? "json"
       : draft?.bodyType === "xml" || draft?.bodyType === "html"
         ? "xml"
@@ -74,7 +86,7 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
 
   const bodyOnMount = useMemo(
     () =>
-      enhanceOnMount(["json", "xml", "plaintext", "graphql"], (editor, monaco) => {
+      enhanceOnMount(["json", "xml", "plaintext"], (editor, monaco) => {
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
           void dispatch(saveActiveTab(tabId));
         });
@@ -108,6 +120,7 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
     if (changes.name) {
       dispatch(updateTab({ id: tabId, changes: { title: changes.name } }));
     }
+    maybeScheduleAutoSaveFromTab(dispatch, store.getState, tabId);
   };
 
   const canFormatJson = draft.bodyType === "json";
@@ -147,6 +160,31 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
 
   return (
     <div className="flex h-full flex-col">
+      {diskChanged ? (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+          <span>Disk changed while you have unsaved edits — your draft was kept.</span>
+          <button
+            type="button"
+            className="shrink-0 font-medium underline-offset-2 hover:underline"
+            onClick={() => {
+              void import("@/store/thunks/filesystemWatcherThunks").then(
+                ({ refreshFilesystemFromDisk }) => {
+                  // Clear unsaved then reload — user chose disk
+                  dispatch(updateTab({ id: tabId, changes: { unsaved: false } }));
+                  void dispatch(refreshFilesystemFromDisk());
+                },
+              );
+              void import("@/store/slices/filesystemSyncSlice").then(
+                ({ clearDiskChangedTab }) => {
+                  dispatch(clearDiskChangedTab(tabId));
+                },
+              );
+            }}
+          >
+            Reload from disk
+          </button>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 border-b p-3">
         <Select
           value={draft.method}
@@ -205,7 +243,13 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
                         headers: draft.headers,
                         params: draft.params,
                         bodyType: draft.bodyType,
-                        body: draft.body,
+                        body:
+                          draft.bodyType === "graphql"
+                            ? syncGraphQLBody(
+                                draft.graphql ??
+                                  createDefaultGraphQLConfig(),
+                              )
+                            : draft.body,
                         authType: draft.auth.type,
                         auth: { ...draft.auth },
                       }),
@@ -341,6 +385,14 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
                     bodyType,
                     formDataFields: [createFormDataField()],
                   });
+                } else if (bodyType === "graphql") {
+                  const graphql =
+                    draft.graphql ?? createDefaultGraphQLConfig();
+                  markUnsaved(
+                    withGraphQLConfig(draft, graphql, {
+                      ensurePostMethod: true,
+                    }),
+                  );
                 } else {
                   markUnsaved({ bodyType });
                 }
@@ -402,7 +454,17 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
               />
             </div>
           )}
-          {draft.bodyType !== "none" && draft.bodyType !== "form-data" && (
+          {draft.bodyType === "graphql" && (
+            <GraphQLBodyEditor
+              tabId={tabId}
+              draft={draft}
+              editorTheme={editorTheme}
+              onChange={markUnsaved}
+            />
+          )}
+          {draft.bodyType !== "none" &&
+            draft.bodyType !== "form-data" &&
+            draft.bodyType !== "graphql" && (
             <div className="min-h-[200px] flex-1 overflow-hidden rounded-md border">
               <Editor
                 height="100%"

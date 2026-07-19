@@ -21,6 +21,7 @@ import type {
   TimelineRow,
 } from "./types";
 import { emptyBuckets } from "./types";
+import { resolveWorkerPlan } from "./worker-plan";
 
 const MAX_ERROR_SAMPLES = 100;
 const UI_TICK_MS = 200;
@@ -41,13 +42,17 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
       reject(new DOMException("Aborted", "AbortError"));
       return;
     }
-    const id = window.setTimeout(resolve, ms);
+    const id = globalThis.setTimeout(resolve, ms);
     const onAbort = () => {
-      window.clearTimeout(id);
+      globalThis.clearTimeout(id);
       reject(new DOMException("Aborted", "AbortError"));
     };
     signal.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
 }
 
 function buildDraft(config: ApiTestConfig): RequestDraft {
@@ -76,7 +81,10 @@ function buildDraft(config: ApiTestConfig): RequestDraft {
   };
 }
 
-function targetVusAt(config: ApiTestConfig, elapsedSec: number): {
+function targetVusAt(
+  config: ApiTestConfig,
+  elapsedSec: number,
+): {
   vus: number;
   spikePhase: "pre" | "spike" | "recovery" | null;
 } {
@@ -124,13 +132,14 @@ export async function runApiTest(
   const { config, signal, onUpdate } = options;
   const startedAt = Date.now();
   const durationMs = Math.max(1, config.durationSec) * 1000;
-  const maxConcurrency = Math.max(
-    1,
-    Math.min(100, config.maxConcurrency || 50),
-  );
+  const plan = resolveWorkerPlan(config);
+  const maxConcurrency = plan.maxInFlight;
 
   let totalRequests = 0;
   let errorCount = 0;
+  let assertionPassCount = 0;
+  let assertionFailCount = 0;
+  let totalErrorSamples = 0;
   let sumMs = 0;
   let minMs = Number.POSITIVE_INFINITY;
   let maxMs = 0;
@@ -160,8 +169,7 @@ export async function runApiTest(
   const buildMetrics = (elapsedMs: number): ApiTestMetrics => {
     const pct = sampler.percentiles();
     const avg = totalRequests > 0 ? sumMs / totalRequests : 0;
-    const rps =
-      elapsedMs > 0 ? totalRequests / (elapsedMs / 1000) : 0;
+    const rps = elapsedMs > 0 ? totalRequests / (elapsedMs / 1000) : 0;
     return {
       totalRequests,
       errorCount,
@@ -177,6 +185,9 @@ export async function runApiTest(
       throughputRps: Math.round(rps * 10) / 10,
       statusCounts: { ...statusCounts },
       buckets: { ...buckets },
+      assertionPassCount,
+      assertionFailCount,
+      totalErrorSamples,
     };
   };
 
@@ -208,18 +219,18 @@ export async function runApiTest(
       const p95 =
         sorted.length === 0
           ? 0
-          : sorted[Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1)]!;
+          : sorted[
+              Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1)
+            ]!;
       timeline.push({
         elapsedSec: lastTimelineSec,
         vus,
         rps: intervalReqs,
-        avgMs:
-          intervalReqs > 0 ? Math.round(intervalSum / intervalReqs) : 0,
+        avgMs: intervalReqs > 0 ? Math.round(intervalSum / intervalReqs) : 0,
         p95Ms: Math.round(p95),
         errors: intervalErrors,
         phase,
       });
-      // Cap timeline length for long soak runs
       if (timeline.length > 3600) timeline.shift();
     }
     lastTimelineSec = sec;
@@ -235,6 +246,7 @@ export async function runApiTest(
     isError: boolean,
     message: string,
     vuId: number,
+    assertionResult?: "pass" | "fail",
   ) => {
     const now = Date.now() - startedAt;
     totalRequests += 1;
@@ -250,9 +262,13 @@ export async function runApiTest(
     statusCounts[key] = (statusCounts[key] ?? 0) + 1;
     errorWindow.push(now, isError);
 
+    if (assertionResult === "pass") assertionPassCount += 1;
+    if (assertionResult === "fail") assertionFailCount += 1;
+
     if (isError) {
       errorCount += 1;
       intervalErrors += 1;
+      totalErrorSamples += 1;
       if (errorSamples.length < MAX_ERROR_SAMPLES) {
         errorSamples.push({
           atMs: now,
@@ -297,6 +313,9 @@ export async function runApiTest(
     stopReason === "breaking";
 
   const runOneRequest = async (vuId: number) => {
+    if (signal.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
     const t0 = performance.now();
     try {
       const response = await sendHttpRequest(
@@ -307,18 +326,27 @@ export async function runApiTest(
         },
         options.variables,
         options.cookies ?? [],
+        signal,
       );
       const latency = response.duration_ms || performance.now() - t0;
       let isError = Boolean(response.error) || response.status >= 400;
-      let message = response.error || response.status_text || `HTTP ${response.status}`;
+      let message =
+        response.error || response.status_text || `HTTP ${response.status}`;
+      let assertionResult: "pass" | "fail" | undefined;
 
       if (config.testType === "assertions") {
         if (response.status !== config.expectedStatus) {
           isError = true;
+          assertionResult = "fail";
           message = `Expected status ${config.expectedStatus}, got ${response.status}`;
         } else if (latency > config.maxLatencyMs) {
           isError = true;
+          assertionResult = "fail";
           message = `Latency ${Math.round(latency)}ms exceeded ${config.maxLatencyMs}ms`;
+        } else {
+          isError = false;
+          assertionResult = "pass";
+          message = "OK";
         }
       }
 
@@ -328,11 +356,17 @@ export async function runApiTest(
         isError,
         message,
         vuId,
+        assertionResult,
       );
     } catch (err) {
+      if (isAbortError(err)) throw err;
       const latency = performance.now() - t0;
       const message = err instanceof Error ? err.message : String(err);
-      recordResult(latency, 0, true, message, vuId);
+      if (config.testType === "assertions") {
+        recordResult(latency, 0, true, message, vuId, "fail");
+      } else {
+        recordResult(latency, 0, true, message, vuId);
+      }
     }
   };
 
@@ -341,20 +375,15 @@ export async function runApiTest(
     let done = 0;
     try {
       while (!shouldStop()) {
-        // Limit in-flight across all VUs
         while (inFlight >= maxConcurrency && !shouldStop()) {
           await sleep(5, signal);
         }
         if (shouldStop()) break;
 
-        if (
-          config.requestsPerVu > 0 &&
-          done >= config.requestsPerVu
-        ) {
+        if (config.requestsPerVu > 0 && done >= config.requestsPerVu) {
           break;
         }
 
-        // Only run if this VU index is within current target
         const elapsedSec = (Date.now() - startedAt) / 1000;
         const { vus } = targetVusAt(config, elapsedSec);
         if (vuId >= vus) {
@@ -374,13 +403,12 @@ export async function runApiTest(
           await sleep(config.thinkTimeMs, signal);
         }
 
-        // Chain: sequential only (single VU already), small yield
         if (config.testType === "chain") {
           await sleep(0, signal);
         }
       }
     } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
+      if (!isAbortError(err)) {
         failMessage = err instanceof Error ? err.message : String(err);
         stopReason = "failed";
       }
@@ -389,29 +417,29 @@ export async function runApiTest(
     }
   };
 
-  // Spawn max possible workers; inactive ones idle when above target VU count
-  const maxVus = Math.min(
-    500,
-    Math.max(
-      config.virtualUsers,
-      config.rampEndVus,
-      config.spikePeakVus,
-      1,
-    ),
-  );
-  const workerCount = Math.min(maxVus, maxConcurrency);
-
   const workers: Promise<void>[] = [];
-  for (let i = 0; i < workerCount; i++) {
+  for (let i = 0; i < plan.workerCount; i++) {
     workers.push(worker(i));
   }
 
   let lastEmit = 0;
+  const emitPhase = (): ApiTestRunSnapshot["phase"] => {
+    if (signal.aborted || stopReason === "cancelled") {
+      if (activeWorkers > 0 || inFlight > 0) return "stopping";
+      return "cancelled";
+    }
+    if (shouldStop() && activeWorkers === 0 && inFlight === 0) {
+      if (stopReason === "failed") return "failed";
+      return "completed";
+    }
+    if (shouldStop()) return "stopping";
+    return "running";
+  };
+
   const tick = async () => {
     while (!shouldStop() || activeWorkers > 0 || inFlight > 0) {
       if (signal.aborted) {
         stopReason = "cancelled";
-        break;
       }
       const now = Date.now();
       const elapsedSec = (now - startedAt) / 1000;
@@ -420,23 +448,18 @@ export async function runApiTest(
 
       if (now - lastEmit >= UI_TICK_MS) {
         lastEmit = now;
-        const phase =
-          shouldStop() && activeWorkers === 0 && inFlight === 0
-            ? stopReason === "cancelled"
-              ? "cancelled"
-              : stopReason === "failed"
-                ? "failed"
-                : "completed"
-            : "running";
-        onUpdate(snapshot(phase === "running" ? "running" : phase));
+        onUpdate(snapshot(emitPhase()));
       }
 
       if (shouldStop() && activeWorkers === 0 && inFlight === 0) break;
+
       try {
         await sleep(UI_TICK_MS / 2, signal);
       } catch {
         stopReason = "cancelled";
-        break;
+        // Keep draining until workers finish; don't sleep on abort again.
+        if (activeWorkers === 0 && inFlight === 0) break;
+        await new Promise((r) => globalThis.setTimeout(r, UI_TICK_MS / 2));
       }
     }
   };
@@ -449,10 +472,18 @@ export async function runApiTest(
     stopReason = signal.aborted ? "cancelled" : "failed";
   }
 
-  // Final timeline flush
+  // Wait briefly for any stragglers after abort race
+  const drainDeadline = Date.now() + 2000;
+  while ((activeWorkers > 0 || inFlight > 0) && Date.now() < drainDeadline) {
+    onUpdate(snapshot("stopping"));
+    await new Promise((r) => globalThis.setTimeout(r, 50));
+  }
+
   const elapsedSec = (Date.now() - startedAt) / 1000;
   const { vus, spikePhase } = targetVusAt(config, elapsedSec);
   flushTimeline(elapsedSec + 1, vus, spikePhase ?? undefined);
+
+  if (signal.aborted) stopReason = "cancelled";
 
   const finalPhase =
     stopReason === "cancelled"
@@ -473,6 +504,10 @@ export async function runApiTest(
         vuId: -1,
       },
     ];
+    final.metrics = {
+      ...final.metrics,
+      totalErrorSamples: final.metrics.totalErrorSamples + 1,
+    };
   }
   onUpdate(final);
   return final;

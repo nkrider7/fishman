@@ -83,6 +83,7 @@ export function StatusBar() {
         <EnvironmentSelector />
         <StatusBarItem icon={Bell} title="Notifications" disabled />
         <StatusBarGit />
+        <AutoSaveStatusItem />
       </div>
 
       {/* Right cluster */}
@@ -125,6 +126,46 @@ export function StatusBar() {
         </span>
       </div>
     </footer>
+  );
+}
+
+function AutoSaveStatusItem() {
+  const sourceMode = useAppSelector((s) => s.collections.sourceMode);
+  const autoSave = useAppSelector((s) => s.filesystemSync.autoSave);
+  const watcherError = useAppSelector((s) => s.filesystemSync.watcherError);
+
+  if (sourceMode !== "filesystem") return null;
+
+  let label = "";
+  let title = "Filesystem project";
+  if (watcherError) {
+    label = "Watch err";
+    title = watcherError;
+  } else if (autoSave.kind === "saving" || autoSave.kind === "pending") {
+    label = "Saving…";
+    title = "Auto-saving request to disk";
+  } else if (autoSave.kind === "saved") {
+    label = "Saved";
+    title = "Request saved to fishman/";
+  } else if (autoSave.kind === "error") {
+    label = "Save failed";
+    title = autoSave.message;
+  }
+
+  if (!label) return null;
+
+  return (
+    <span
+      className={cn(
+        "ml-1 truncate px-1 text-[9px]",
+        autoSave.kind === "error" || watcherError
+          ? "text-destructive"
+          : "text-muted-foreground/80",
+      )}
+      title={title}
+    >
+      {label}
+    </span>
   );
 }
 

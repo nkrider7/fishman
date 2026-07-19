@@ -1,5 +1,6 @@
 import type { GitFileChange, GitFileStatus } from "@/git-native";
 import { cn } from "@/utils/cn";
+import { VirtualList } from "@/components/collections/VirtualizedTreeList";
 
 function statusLetter(status: GitFileStatus): string {
   switch (status) {
@@ -66,74 +67,78 @@ export function GitFileList({
   const modeStaged = mode === "staged";
 
   return (
-    <ul className="flex flex-col">
-      {files.map((file) => {
+    <VirtualList
+      className={files.length > 80 ? "max-h-64" : undefined}
+      items={files}
+      estimateSize={28}
+      getKey={(file) => `${mode}:${file.path}:${file.status}`}
+      renderItem={(file) => {
         const selected =
           selectedPath === file.path && selectedStaged === modeStaged;
         return (
-          <li key={`${mode}:${file.path}:${file.status}`}>
-            <button
-              type="button"
+          <button
+            type="button"
+            className={cn(
+              "flex h-7 w-full items-center gap-2 px-3 text-left text-xs transition-colors hover:bg-muted/50",
+              selected && "bg-accent/60",
+              file.status === "conflicted" &&
+                "border-l-2 border-l-destructive bg-destructive/5",
+            )}
+            onClick={() => onSelect(file)}
+            title={file.path}
+          >
+            <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
+              {file.path}
+            </span>
+            <span
               className={cn(
-                "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-muted/50",
-                selected && "bg-accent/60",
+                "shrink-0 font-semibold tabular-nums",
+                statusColor(file.status),
               )}
-              onClick={() => onSelect(file)}
-              title={file.path}
             >
-              <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
-                {file.path}
-              </span>
+              {statusLetter(file.status)}
+            </span>
+            {mode === "unstaged" && onStageOne ? (
               <span
-                className={cn(
-                  "shrink-0 font-semibold tabular-nums",
-                  statusColor(file.status),
-                )}
-              >
-                {statusLetter(file.status)}
-              </span>
-              {mode === "unstaged" && onStageOne ? (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  className="shrink-0 text-[10px] text-primary hover:underline"
-                  onClick={(e) => {
+                role="button"
+                tabIndex={0}
+                className="shrink-0 text-[10px] text-primary hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStageOne(file.path);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     e.stopPropagation();
                     onStageOne(file.path);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.stopPropagation();
-                      onStageOne(file.path);
-                    }
-                  }}
-                >
-                  +
-                </span>
-              ) : null}
-              {mode === "staged" && onUnstageOne ? (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  className="shrink-0 text-[10px] text-muted-foreground hover:underline"
-                  onClick={(e) => {
+                  }
+                }}
+              >
+                +
+              </span>
+            ) : null}
+            {mode === "staged" && onUnstageOne ? (
+              <span
+                role="button"
+                tabIndex={0}
+                className="shrink-0 text-[10px] text-muted-foreground hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnstageOne(file.path);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
                     e.stopPropagation();
                     onUnstageOne(file.path);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.stopPropagation();
-                      onUnstageOne(file.path);
-                    }
-                  }}
-                >
-                  −
-                </span>
-              ) : null}
-            </button>
-          </li>
+                  }
+                }}
+              >
+                −
+              </span>
+            ) : null}
+          </button>
         );
-      })}
-    </ul>
+      }}
+    />
   );
 }

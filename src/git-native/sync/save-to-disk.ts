@@ -181,5 +181,8 @@ export async function saveRequestOnDisk(input: {
     id: fish.id,
     collection_id: input.collectionId,
     updated_at: Date.now(),
-  };
+    source_kind: "filesystem",
+    source_path: relativePath,
+    sync_status: "dirty",
+  } as SavedRequest;
 }

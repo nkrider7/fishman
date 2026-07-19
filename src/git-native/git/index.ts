@@ -26,6 +26,8 @@ export {
   setGitAuthCredentials,
 } from "./auth";
 export type { GitAuthCredentials } from "./auth";
+export { normalizeRemoteUrl, isLikelySshRemote } from "./remote-url";
+export { tauriGitHttp } from "./tauri-http";
 export { mapStatusMatrixRow, expandStatusLetter } from "./status-map";
 export type { StatusMatrixRow } from "./status-map";
 export {

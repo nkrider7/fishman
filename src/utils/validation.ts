@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { RequestDraft } from "@/types/request";
 import { getFormDataFilePaths } from "@/types/request";
+import { ensureGraphQLConfig, validateGraphQLForSend } from "@/graphql";
 
 export const requestDraftSchema = z.object({
   name: z.string(),
@@ -50,6 +51,15 @@ export const requestDraftSchema = z.object({
       }),
     )
     .optional(),
+  graphql: z
+    .object({
+      query: z.string(),
+      variables: z.string(),
+      operationName: z.string().nullable(),
+      schemaSource: z.enum(["introspection", "sdl", "none"]).optional(),
+      transport: z.enum(["http", "ws"]).optional(),
+    })
+    .optional(),
   auth: z.object({ type: z.string() }).passthrough(),
   scripts: z
     .object({
@@ -79,6 +89,12 @@ export function validateRequest(draft: RequestDraft): string | null {
     if (enabled.length === 0) {
       return "Add at least one enabled form field";
     }
+  }
+
+  if (draft.bodyType === "graphql") {
+    const graphql = ensureGraphQLConfig(draft);
+    const gqlError = validateGraphQLForSend(graphql);
+    if (gqlError) return gqlError;
   }
 
   return null;

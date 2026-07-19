@@ -41,3 +41,15 @@ export {
   detectBreakingPoint,
   ErrorRateWindow,
 } from "./breaking-point";
+export {
+  validateApiTestConfig,
+  firstValidationError,
+} from "./validate";
+export type { ApiTestValidation } from "./validate";
+export { resolveWorkerPlan } from "./worker-plan";
+export type { WorkerPlan } from "./worker-plan";
+export {
+  describeVuProfile,
+  formatStatusCounts,
+  formatRunSummary,
+} from "./summary";

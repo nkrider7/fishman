@@ -1,5 +1,6 @@
 import type { AuthConfig, KeyValue, RequestDraft } from "@/types/request";
 import { resolveDynamicVariable } from "@/script-engine/builtins";
+import { syncGraphQLBody } from "@/graphql";
 
 const VARIABLE_PATTERN = /\{\{([^{}]+)\}\}/g;
 
@@ -151,12 +152,27 @@ export function substituteRequestDraft(
 ): RequestDraft {
   if (Object.keys(variables).length === 0) return request;
 
+  const graphql = request.graphql
+    ? {
+        ...request.graphql,
+        query: substituteVariables(request.graphql.query, variables),
+        variables: substituteVariables(request.graphql.variables, variables),
+        operationName: request.graphql.operationName
+          ? substituteVariables(request.graphql.operationName, variables)
+          : null,
+      }
+    : undefined;
+
   return {
     ...request,
     url: substituteVariables(request.url, variables),
     params: substituteKeyValues(request.params, variables),
     headers: substituteKeyValues(request.headers, variables),
-    body: substituteVariables(request.body, variables),
+    body:
+      request.bodyType === "graphql" && graphql
+        ? syncGraphQLBody(graphql)
+        : substituteVariables(request.body, variables),
+    graphql,
     formDataFields: request.formDataFields?.map((field) => ({
       ...field,
       key: substituteVariables(field.key, variables),

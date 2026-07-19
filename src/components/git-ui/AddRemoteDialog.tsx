@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { addGitRemote } from "@/store/thunks/gitThunks";
+import { normalizeRemoteUrl } from "@/git-native";
 
 interface AddRemoteDialogProps {
   open: boolean;
@@ -24,7 +25,10 @@ export function AddRemoteDialog({ open, onOpenChange }: AddRemoteDialogProps) {
 
   const handleAdd = async () => {
     if (!url.trim()) return;
-    await dispatch(addGitRemote({ name: name.trim() || "origin", url }));
+    const normalized = normalizeRemoteUrl(url);
+    await dispatch(
+      addGitRemote({ name: name.trim() || "origin", url: normalized }),
+    );
     setUrl("");
     onOpenChange(false);
   };

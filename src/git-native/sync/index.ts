@@ -8,3 +8,20 @@ export {
   sqliteCollectionToGraph,
 } from "./export-collection-to-git";
 export type { InitializeCollectionGitResult } from "./export-collection-to-git";
+export {
+  markSelfWrite,
+  isSelfWrite,
+  anySelfWrite,
+  clearSelfWrites,
+} from "./self-write";
+export { AutoSaveScheduler } from "./auto-save";
+export type { AutoSaveStatus, AutoSaveSchedulerOptions } from "./auto-save";
+export {
+  planDiskReload,
+  hasConflictMarkers,
+  countConflictedPaths,
+  canCommitWithConflicts,
+} from "./reload-from-disk";
+export type { DiskReloadPlan } from "./reload-from-disk";
+export { startFishmanWatcher } from "./watcher";
+export type { FishmanWatcher, StartFishmanWatcherOptions } from "./watcher";

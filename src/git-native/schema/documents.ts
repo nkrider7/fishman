@@ -39,6 +39,16 @@ export const fishBodySchema = z
       .default("none"),
     content: z.string().default(""),
     formData: z.array(fishFormDataFieldSchema).optional(),
+    /** Structured GraphQL fields (optional; content remains wire JSON). */
+    graphql: z
+      .object({
+        query: z.string(),
+        variables: z.string().default("{\n  \n}"),
+        operationName: z.string().nullable().default(null),
+        schemaSource: z.enum(["introspection", "sdl", "none"]).optional(),
+        transport: z.enum(["http", "ws"]).optional(),
+      })
+      .optional(),
   })
   .passthrough();
 

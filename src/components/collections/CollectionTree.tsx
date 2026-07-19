@@ -40,6 +40,7 @@ import { openCollectionSettings } from "@/store/thunks/collectionSettingsThunks"
 import type { CollectionFolder, SavedRequest } from "@/types/collection";
 import { buildFolderChain, resolveNearestPresets } from "@/collections/inheritance";
 import { CollectionHeader } from "@/components/collections/CollectionHeader";
+import { CollectionSearchResults } from "@/components/collections/CollectionSearchResults";
 import { ImportDialog } from "@/components/import-export/ImportDialog";
 import { ExportDialog } from "@/components/import-export/ExportDialog";
 import {
@@ -838,6 +839,9 @@ export function CollectionTree() {
         selectedCollectionId={selectedCollectionId}
       />
 
+      {searchQuery.trim() || requests.length > 200 ? (
+        <CollectionSearchResults query={searchQuery.trim() ? searchQuery : ""} />
+      ) : (
       <DndContext
         sensors={sensors}
         collisionDetection={treeCollisionDetection}
@@ -868,6 +872,7 @@ export function CollectionTree() {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       <ImportDialog
         open={importOpen}

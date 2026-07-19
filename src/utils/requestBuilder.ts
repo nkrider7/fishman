@@ -4,6 +4,7 @@ import type { FormDataPart } from "@/types/response";
 import type { StoredCookie } from "@/types/cookie";
 import { buildCookieHeader, selectCookiesForUrl } from "@/utils/cookies";
 import { substituteRequestDraft } from "@/utils/variableSubstitution";
+import { ensureGraphQLConfig, syncGraphQLBody } from "@/graphql";
 
 function toFormDataParts(fields: FormDataField[]): FormDataPart[] {
   const parts: FormDataPart[] = [];
@@ -279,12 +280,28 @@ export function buildRequestPayload(
   const isFormData = resolved.bodyType === "form-data";
   const formDataFields = resolved.formDataFields ?? [];
 
+  let body: string | undefined =
+    resolved.bodyType === "none" || isFormData ? undefined : resolved.body;
+
+  if (resolved.bodyType === "graphql") {
+    const graphql = ensureGraphQLConfig(resolved);
+    body = graphql ? syncGraphQLBody(graphql) : resolved.body;
+    const hasContentType = headers.some(
+      (h) => h.enabled && h.key.toLowerCase() === "content-type",
+    );
+    if (!hasContentType) {
+      headers = [
+        ...headers,
+        { key: "Content-Type", value: "application/json", enabled: true },
+      ];
+    }
+  }
+
   return {
     method: resolved.method,
     url,
     headers,
-    body:
-      resolved.bodyType === "none" || isFormData ? undefined : resolved.body,
+    body,
     body_type: resolved.bodyType,
     form_data: isFormData ? toFormDataParts(formDataFields) : undefined,
     timeout_ms: options.timeoutMs,

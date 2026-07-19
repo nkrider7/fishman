@@ -1,5 +1,4 @@
-import fishmanOverlay from "@/assets/fishmansunoverlay.png";
-import sunLogo from "@/assets/sun.svg";
+import { BRAND_MARK_PNG, BRAND_MARK_WEBP, BRAND_SUN_SVG } from "@/brand/assets";
 import { cn } from "@/utils/cn";
 
 interface BrandLoadingScreenProps {
@@ -26,32 +25,35 @@ export function BrandLoadingScreen({
       aria-live="polite"
       aria-busy="true"
     >
-      {/* Soft brand glow */}
-      {/* <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(204,28,57,0.14)_0%,transparent_55%)]"
-      /> */}
-
       <div className="brand-splash-enter relative z-10 flex flex-col items-center">
         <div
-          className="relative h-16 w-16 shrink-0 "
+          className="relative h-16 w-16 shrink-0"
           role="img"
           aria-label="Fishman"
         >
           <img
-            src={sunLogo}
+            src={BRAND_SUN_SVG}
             alt=""
             aria-hidden
             draggable={false}
+            width={64}
+            height={64}
+            decoding="async"
             className="brand-splash-sun absolute inset-0 m-auto h-full w-full select-none object-contain"
           />
-          <img
-            src={fishmanOverlay}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="brand-splash-mark absolute inset-0 m-auto h-[90%] w-[90%] select-none object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
-          />
+          <picture>
+            <source srcSet={BRAND_MARK_WEBP} type="image/webp" />
+            <img
+              src={BRAND_MARK_PNG}
+              alt=""
+              aria-hidden
+              draggable={false}
+              width={58}
+              height={58}
+              decoding="async"
+              className="brand-splash-mark absolute inset-0 m-auto h-[90%] w-[90%] select-none object-contain"
+            />
+          </picture>
         </div>
 
         <h1 className="mt-5 text-xl font-semibold tracking-wide text-neutral-100">

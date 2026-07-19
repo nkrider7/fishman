@@ -6,6 +6,7 @@ import {
   PRESET_ACCENT_STYLES,
   TEST_TYPE_LABELS,
   applyPreset,
+  firstValidationError,
   type ApiTestConfig,
   type ApiTestType,
   type RampCurve,
@@ -32,6 +33,7 @@ interface ConfigViewProps {
   onRun: () => void;
   disabled?: boolean;
   error?: string | null;
+  hasActiveRequest?: boolean;
 }
 
 export function ConfigView({
@@ -42,9 +44,14 @@ export function ConfigView({
   onRun,
   disabled,
   error,
+  hasActiveRequest = false,
 }: ConfigViewProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const canRun = Boolean(config.url.trim()) && !disabled;
+  const validationError = useMemo(
+    () => firstValidationError(config),
+    [config],
+  );
+  const canRun = !disabled && !validationError;
 
   const selectedPreset = useMemo(
     () => API_TEST_PRESETS.find((p) => p.id === config.testType),
@@ -149,7 +156,11 @@ export function ConfigView({
               className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-50"
               onClick={onUseActiveRequest}
               disabled={disabled}
-              title={FIELD_HELP.useActive}
+              title={
+                hasActiveRequest
+                  ? FIELD_HELP.useActive
+                  : "Open a request tab first"
+              }
             >
               Use Active Request
               <InfoTip label="Use active request">{FIELD_HELP.useActive}</InfoTip>
@@ -395,9 +406,9 @@ export function ConfigView({
             </div>
           ) : null}
 
-          {error ? (
+          {error || validationError ? (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
+              {error ?? validationError}
             </p>
           ) : null}
         </section>
@@ -407,13 +418,14 @@ export function ConfigView({
         <p className="text-[11px] text-muted-foreground">
           {canRun
             ? "Ready — results update live while the test runs."
-            : "Enter a URL (or Use Active Request) to enable Run."}
+            : validationError ??
+              "Enter a URL (or Use Active Request) to enable Run."}
         </p>
         <Button
           className="gap-2"
           disabled={!canRun}
           onClick={onRun}
-          title={canRun ? "Run test" : "Enter a URL to run"}
+          title={canRun ? "Run test" : (validationError ?? "Fix config to run")}
         >
           <Play className="h-3.5 w-3.5" />
           Run Test

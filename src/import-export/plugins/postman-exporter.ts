@@ -1,6 +1,7 @@
 import type { ExportContext, ExportPlugin } from "../core/types";
 import type { RequestDraft } from "@/types/request";
 import { deserializeBodyFromStorage, getFormDataFilePaths } from "@/types/request";
+import { ensureGraphQLConfig, syncGraphQLBody } from "@/graphql";
 
 interface PostmanItem {
   name: string;
@@ -104,8 +105,25 @@ function buildBody(draft: RequestDraft): Record<string, unknown> | undefined {
             };
           }),
       };
-    case "graphql":
-      return { mode: "graphql", raw: body, graphql: {} };
+    case "graphql": {
+      const graphql = ensureGraphQLConfig(draft) ?? {
+        query: "",
+        variables: "{}",
+        operationName: null,
+      };
+      const wire = syncGraphQLBody(graphql);
+      return {
+        mode: "graphql",
+        raw: wire,
+        graphql: {
+          query: graphql.query,
+          variables: graphql.variables,
+          ...(graphql.operationName
+            ? { operationName: graphql.operationName }
+            : {}),
+        },
+      };
+    }
     case "xml":
       return {
         mode: "raw",
