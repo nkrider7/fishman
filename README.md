@@ -40,6 +40,7 @@ npm install && npm run tauri dev
 - First-class **HTTP QUERY** (RFC 10008) — safe, idempotent requests with a body
 - Query params, headers, and auth in dedicated tabs
 - Body types: JSON, form-data (text + files), `x-www-form-urlencoded`, raw, XML, HTML, GraphQL, binary
+- **GraphQL** — Query / Variables / Operation Name editors, schema introspection + docs sidebar, GraphQL data/errors response view (HTTP today; subscriptions planned with WebSocket)
 - Auth: Bearer, Basic, API Key (header or query), JWT, OAuth2 token, custom header
 - Multi-tab workspace with pin, unsaved indicators, and close shortcuts
 - **Generate code** snippets (cURL, HTTPie, fetch, axios, Python requests, and more) from the active request
@@ -104,6 +105,7 @@ AST-based / structured scanning picks up mounts, controllers, and handler bindin
 - Themes: dark, light, or follow system
 - Settings: request timeout, ignore SSL, sidebar collapse
 - Keyboard-first workflow (see shortcuts below)
+- Fast cold start: tiny WebP splash mark (~9KB) + HTML splash before React; window shows after first paint
 
 ---
 
@@ -165,6 +167,18 @@ npm run tauri build
 
 # Unit tests
 npm test
+```
+
+### GitHub Releases (Linux + Windows)
+
+Tag a version to build installers via Actions and publish a Release:
+
+See **[docs/release.md](docs/release.md)** for the full checklist (version bump, tag, downloads, checksums).
+
+```bash
+# after bumping version in package.json, tauri.conf.json, and Cargo.toml
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 ### Quick smoke test
@@ -253,7 +267,9 @@ project/
 
 - Pretty, deterministic JSON (stable key order → clean Git diffs)
 - Secrets stay in `*.secret.json` / `.env.secret`
-- Detect `.git` and (upcoming) full Git status / commit / branch / conflict UI
+- Detect `.git` and full Git status / commit / branch / conflict UI (ours/theirs resolve)
+- Debounced auto-save + recursive `fishman/` file watcher (external edits sync; unsaved drafts are never clobbered)
+- Large-workspace search index + virtualized results / git file lists
 
 Format and roadmap: [docs/git-native.md](docs/git-native.md).
 
