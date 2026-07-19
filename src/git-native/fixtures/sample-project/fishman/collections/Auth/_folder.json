@@ -1,0 +1,11 @@
+{
+    "id": "fld_auth01",
+    "name": "Auth",
+    "seq": 0,
+    "auth": {
+        "type": "bearer",
+        "bearer": {
+            "token": "{{token}}"
+        }
+    }
+}

@@ -1,11 +1,8 @@
-export type HttpMethod =
-  | "GET"
-  | "POST"
-  | "PUT"
-  | "PATCH"
-  | "DELETE"
-  | "OPTIONS"
-  | "HEAD";
+import type { HttpMethodName } from "@/http-methods/types";
+import { HTTP_METHOD_ORDER } from "@/http-methods/registry";
+
+/** Canonical HTTP methods — driven by the method registry. */
+export type HttpMethod = HttpMethodName;
 
 export type BodyType =
   | "none"
@@ -20,6 +17,7 @@ export type BodyType =
 
 export type AuthType =
   | "none"
+  | "inherit"
   | "bearer"
   | "apikey"
   | "basic"
@@ -40,11 +38,48 @@ export interface FormDataField {
   id: string;
   key: string;
   type: FormDataFieldType;
-  /** Text content or display filename for file fields */
+  /** Text content or display label for file fields */
   value: string;
-  /** Absolute path on disk for file fields (Tauri) */
+  /** Absolute paths on disk for file fields (Tauri) */
+  filePaths?: string[];
+  /** @deprecated Use filePaths. Migrated on load for legacy saved requests. */
   filePath?: string;
   enabled: boolean;
+}
+
+function basename(path: string): string {
+  const parts = path.split(/[/\\]/);
+  return parts[parts.length - 1] || path;
+}
+
+/** Returns normalized file paths for a form field, migrating legacy filePath. */
+export function getFormDataFilePaths(field: FormDataField): string[] {
+  if (field.filePaths && field.filePaths.length > 0) {
+    return field.filePaths;
+  }
+  if (field.filePath) {
+    return [field.filePath];
+  }
+  return [];
+}
+
+export function formatFormDataFileLabel(paths: string[]): string {
+  if (paths.length === 0) return "";
+  if (paths.length === 1) return basename(paths[0]);
+  return `${paths.length} files`;
+}
+
+export function normalizeFormDataField(field: FormDataField): FormDataField {
+  const filePaths = getFormDataFilePaths(field);
+  const { filePath: _legacy, ...rest } = field;
+  return {
+    ...rest,
+    filePaths: filePaths.length > 0 ? filePaths : undefined,
+    value:
+      field.type === "file" && filePaths.length > 0
+        ? formatFormDataFileLabel(filePaths)
+        : field.value,
+  };
 }
 
 export interface AuthConfig {
@@ -68,9 +103,24 @@ export interface RequestDraft {
   body: string;
   formDataFields: FormDataField[];
   auth: AuthConfig;
+  scripts: RequestScripts;
+  /** Tags for collection runner include/exclude filters. */
+  tags?: string[];
   collectionId?: string;
   isFavorite?: boolean;
 }
+
+export interface RequestScripts {
+  preRequest: string;
+  postResponse: string;
+  tests: string;
+}
+
+export const EMPTY_SCRIPTS: RequestScripts = {
+  preRequest: "",
+  postResponse: "",
+  tests: "",
+};
 
 export interface Tab {
   id: string;
@@ -78,17 +128,16 @@ export interface Tab {
   requestId?: string;
   unsaved: boolean;
   pinned: boolean;
+  /** Default request tab; runner / collection settings / git are dedicated views. */
+  kind?: "request" | "runner" | "collection" | "git";
+  runnerCollectionId?: string;
+  runnerFolderId?: string | null;
+  /** Folder id when kind is "collection". */
+  collectionFolderId?: string;
 }
 
-export const HTTP_METHODS: HttpMethod[] = [
-  "GET",
-  "POST",
-  "PUT",
-  "PATCH",
-  "DELETE",
-  "OPTIONS",
-  "HEAD",
-];
+/** Display order from the HTTP method registry (GET, QUERY, POST, …). */
+export const HTTP_METHODS: HttpMethod[] = [...HTTP_METHOD_ORDER];
 
 export const BODY_TYPES: { value: BodyType; label: string }[] = [
   { value: "none", label: "None" },
@@ -114,6 +163,7 @@ export function createEmptyRequest(name = "Untitled Request"): RequestDraft {
     body: "",
     formDataFields: [],
     auth: { type: "none" },
+    scripts: { ...EMPTY_SCRIPTS },
   };
 }
 
@@ -146,7 +196,7 @@ export function deserializeBodyFromStorage(
       if (Array.isArray(parsed)) {
         return {
           body: "",
-          formDataFields: parsed as FormDataField[],
+          formDataFields: (parsed as FormDataField[]).map(normalizeFormDataField),
         };
       }
     } catch {

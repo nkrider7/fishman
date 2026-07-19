@@ -133,9 +133,18 @@ function endpointToRequestDraft(
   if (endpoint.requestBody) {
     if (endpoint.requestBody.contentType.includes("multipart")) {
       bodyType = "form-data";
+      const schema = endpoint.requestBody.schema ?? {};
       const example =
         endpoint.requestBody.example ?? endpoint.requestBody.raw ?? "";
-      if (example) {
+      if (Object.keys(schema).length > 0) {
+        formDataFields = Object.entries(schema).map(([key, value]) => ({
+          id: generateId(),
+          key,
+          type: "text" as const,
+          value: value == null ? "" : String(value),
+          enabled: true,
+        }));
+      } else if (example) {
         try {
           const parsed: unknown = JSON.parse(example);
           if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -155,17 +164,26 @@ function endpointToRequestDraft(
       }
     } else if (endpoint.requestBody.contentType.includes("x-www-form-urlencoded")) {
       bodyType = "x-www-form-urlencoded";
-      body = endpoint.requestBody.example ?? endpoint.requestBody.raw ?? "";
+      const schema = endpoint.requestBody.schema ?? {};
+      if (endpoint.requestBody.example || endpoint.requestBody.raw) {
+        body = endpoint.requestBody.example ?? endpoint.requestBody.raw ?? "";
+      } else if (Object.keys(schema).length > 0) {
+        body = Object.entries(schema)
+          .map(
+            ([key, value]) =>
+              `${encodeURIComponent(key)}=${encodeURIComponent(value == null ? "" : String(value))}`,
+          )
+          .join("&");
+      } else {
+        body = "";
+      }
     } else {
       const schema = endpoint.requestBody.schema ?? {};
-      const hasFields = Object.keys(schema).length > 0;
-      if (hasFields || endpoint.requestBody.example) {
-        bodyType = "json";
-        body =
-          endpoint.requestBody.example ??
-          endpoint.requestBody.raw ??
-          JSON.stringify(schema, null, 2);
-      }
+      bodyType = "json";
+      body =
+        endpoint.requestBody.example ??
+        endpoint.requestBody.raw ??
+        JSON.stringify(schema, null, 2);
     }
   }
 
@@ -180,6 +198,7 @@ function endpointToRequestDraft(
     body,
     formDataFields,
     auth,
+    scripts: { preRequest: "", postResponse: "", tests: "" },
     collectionId: undefined,
   };
 }

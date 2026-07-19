@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RequestDraft } from "@/types/request";
+import { getFormDataFilePaths } from "@/types/request";
 
 export const requestDraftSchema = z.object({
   name: z.string(),
@@ -43,12 +44,20 @@ export const requestDraftSchema = z.object({
         key: z.string(),
         type: z.enum(["text", "file"]),
         value: z.string(),
+        filePaths: z.array(z.string()).optional(),
         filePath: z.string().optional(),
         enabled: z.boolean(),
       }),
     )
     .optional(),
   auth: z.object({ type: z.string() }).passthrough(),
+  scripts: z
+    .object({
+      preRequest: z.string(),
+      postResponse: z.string(),
+      tests: z.string(),
+    })
+    .optional(),
 });
 
 export function validateRequest(draft: RequestDraft): string | null {
@@ -62,7 +71,7 @@ export function validateRequest(draft: RequestDraft): string | null {
     const enabled = fields.filter((f) => f.enabled && f.key.trim());
 
     for (const field of enabled) {
-      if (field.type === "file" && !field.filePath) {
+      if (field.type === "file" && getFormDataFilePaths(field).length === 0) {
         return `Form field "${field.key}" is missing a file`;
       }
     }

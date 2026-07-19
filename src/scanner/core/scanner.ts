@@ -6,7 +6,9 @@ import { readPackageJson } from "../utils/file-discovery";
 import { scannerRegistry } from "./registry";
 import { nodeLanguagePlugin } from "../language/node-plugin";
 import { pythonLanguagePlugin } from "../language/python-plugin";
+import { javaLanguagePlugin } from "../language/java-plugin";
 import { detectPythonProject } from "../plugins/python/shared/project-detector";
+import { detectJavaProject } from "../plugins/java/shared/project-detector";
 
 let initialized = false;
 
@@ -14,7 +16,10 @@ export function initializeScanner(
   registry: ScannerPluginRegistry = scannerRegistry,
 ): void {
   if (initialized) return;
+  // Order: prefer explicit manifests. Python/Java before Node so a monorepo
+  // with package.json + pom.xml still classifies by the selected folder markers.
   registry.registerLanguage(pythonLanguagePlugin);
+  registry.registerLanguage(javaLanguagePlugin);
   registry.registerLanguage(nodeLanguagePlugin);
   initialized = true;
 }
@@ -52,7 +57,7 @@ export async function scanProject(
       warnings: [
         {
           message:
-            "Could not detect project language. Supported: Python (requirements.txt, pyproject.toml) and Node.js (package.json).",
+            "Could not detect project language. Supported: Python (requirements.txt, pyproject.toml), Java (pom.xml / Gradle), and Node.js (package.json).",
           severity: "error",
         },
       ],
@@ -75,6 +80,25 @@ export async function scanProject(
       },
     };
     for (const message of pythonProjectInfo.warnings) {
+      warnings.push({ message, severity: "warning" });
+    }
+  }
+
+  if (language.id === "java") {
+    const javaProjectInfo = await detectJavaProject(fs, options.projectPath);
+    detectionCtx = {
+      ...detectionCtx,
+      javaProject: {
+        dependencies: javaProjectInfo.dependencies,
+        buildSystem: javaProjectInfo.buildSystem,
+        springBootVersion: javaProjectInfo.springBootVersion,
+        contextPath: javaProjectInfo.contextPath,
+        servletPath: javaProjectInfo.servletPath,
+        entryClasses: javaProjectInfo.entryClasses,
+        sourceRoots: javaProjectInfo.sourceRoots,
+      },
+    };
+    for (const message of javaProjectInfo.warnings) {
       warnings.push({ message, severity: "warning" });
     }
   }

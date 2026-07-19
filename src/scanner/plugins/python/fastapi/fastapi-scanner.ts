@@ -233,7 +233,7 @@ function getDependsName(node: import("py-ast").ASTNodeUnion): string | undefined
   if (args[0] && isNodeType(args[0], "Name")) {
     return (args[0] as { id: string }).id;
   }
-  return getAttributeChain(args[0]);
+  return getAttributeChain(args[0]) ?? undefined;
 }
 
 function extractFunctionSource(source: string, name: string): string {

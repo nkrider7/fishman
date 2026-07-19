@@ -1,6 +1,6 @@
 import type { ExportContext, ExportPlugin } from "../core/types";
 import type { RequestDraft } from "@/types/request";
-import { deserializeBodyFromStorage } from "@/types/request";
+import { deserializeBodyFromStorage, getFormDataFilePaths } from "@/types/request";
 
 interface PostmanItem {
   name: string;
@@ -66,13 +66,29 @@ function buildBody(draft: RequestDraft): Record<string, unknown> | undefined {
     case "form-data":
       return {
         mode: "formdata",
-        formdata: (formDataFields ?? []).map((f) => ({
-          key: f.key,
-          value: f.type === "text" ? f.value : undefined,
-          type: f.type === "file" ? "file" : "text",
-          src: f.type === "file" && f.filePath ? f.filePath : undefined,
-          disabled: !f.enabled,
-        })),
+        formdata: (formDataFields ?? []).map((f) => {
+          if (f.type === "file") {
+            const paths = getFormDataFilePaths(f);
+            return {
+              key: f.key,
+              type: "file",
+              src:
+                paths.length === 0
+                  ? undefined
+                  : paths.length === 1
+                    ? paths[0]
+                    : paths,
+              disabled: !f.enabled,
+            };
+          }
+
+          return {
+            key: f.key,
+            value: f.value,
+            type: "text",
+            disabled: !f.enabled,
+          };
+        }),
       };
     case "x-www-form-urlencoded":
       return {

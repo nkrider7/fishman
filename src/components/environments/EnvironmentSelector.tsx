@@ -80,14 +80,16 @@ export function EnvironmentSelector() {
         <button
           type="button"
           className={cn(
-            "flex max-w-[220px] items-center gap-1.5 rounded px-2 py-0.5 transition-colors hover:bg-white/10",
+            "flex h-4 max-w-[180px] items-center gap-1 rounded px-1 transition-colors hover:bg-accent",
             hasActiveEnv ? "text-amber-400" : "text-muted-foreground",
           )}
           title="Select environment"
         >
-          <Globe className="h-3 w-3 shrink-0" />
-          <span className="truncate text-xs font-medium">{label}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
+          <Globe className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate text-[10px] font-medium leading-none">
+            {label}
+          </span>
+          <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-70" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64 p-0">

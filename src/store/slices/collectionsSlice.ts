@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { CollectionFolder, SavedRequest } from "@/types/collection";
 import * as db from "@/services/dbService";
 import {
@@ -9,6 +9,8 @@ import { prepareImportWithStrategy } from "@/import-export/core/conflict";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { open } from "@tauri-apps/plugin-dialog";
 
+export type CollectionsSourceMode = "sqlite" | "filesystem";
+
 interface CollectionsState {
   folders: CollectionFolder[];
   requests: SavedRequest[];
@@ -16,6 +18,10 @@ interface CollectionsState {
   loading: boolean;
   searchQuery: string;
   treeCollapseKey: number;
+  /** sqlite = personal DB; filesystem = open git-native project. */
+  sourceMode: CollectionsSourceMode;
+  filesystemRootPath: string | null;
+  filesystemProjectName: string | null;
 }
 
 const initialState: CollectionsState = {
@@ -25,36 +31,97 @@ const initialState: CollectionsState = {
   loading: false,
   searchQuery: "",
   treeCollapseKey: 0,
+  sourceMode: "sqlite",
+  filesystemRootPath: null,
+  filesystemProjectName: null,
 };
 
 export const fetchCollections = createAsyncThunk(
   "collections/fetch",
-  async () => {
+  async (_arg, { getState }) => {
+    const state = getState() as import("../index").RootState;
+    // Don't clobber an open filesystem project with sqlite rows.
+    if (state.collections.sourceMode === "filesystem") {
+      return {
+        folders: state.collections.folders,
+        requests: state.collections.requests,
+        skipped: true as const,
+      };
+    }
+    const workspaceId = state.workspaces.activeWorkspaceId;
     const [folders, requests] = await Promise.all([
-      db.getCollections(),
-      db.getRequests(),
+      db.getCollections(workspaceId),
+      db.getRequests(workspaceId),
     ]);
-    return { folders, requests };
+    return { folders, requests, skipped: false as const };
   },
 );
 
 export const createFolder = createAsyncThunk(
   "collections/createFolder",
-  async ({
-    name,
-    parentId,
-  }: {
-    name: string;
-    parentId?: string | null;
-  }) => {
-    return db.createFolder(name, parentId ?? null);
+  async (
+    {
+      name,
+      parentId,
+    }: {
+      name: string;
+      parentId?: string | null;
+    },
+    { getState, dispatch },
+  ) => {
+    const state = getState() as import("../index").RootState;
+    if (
+      state.collections.sourceMode === "filesystem" &&
+      state.collections.filesystemRootPath
+    ) {
+      const { createFolderOnDisk } = await import("@/git-native");
+      const folder = await createFolderOnDisk({
+        name,
+        parentId: parentId ?? null,
+        folders: state.collections.folders,
+        workspaceRootPath: state.collections.filesystemRootPath,
+        workspaceId: `fs:${state.git.workspaceName ?? "project"}`,
+      });
+      const gitThunks = await import("../thunks/gitThunks");
+      void dispatch(gitThunks.refreshGitStatus());
+      void dispatch(gitThunks.refreshFilesystemCollections());
+      return folder;
+    }
+    return db.createFolder(
+      name,
+      parentId ?? null,
+      state.workspaces.activeWorkspaceId,
+    );
   },
 );
 
 export const createCollection = createAsyncThunk(
   "collections/createCollection",
-  async (name: string) => {
-    return db.createFolder(name, null);
+  async (name: string, { getState, dispatch }) => {
+    const state = getState() as import("../index").RootState;
+    if (
+      state.collections.sourceMode === "filesystem" &&
+      state.collections.filesystemRootPath
+    ) {
+      const rootId =
+        state.collections.folders.find((f) => !f.parent_id)?.id ?? null;
+      const { createFolderOnDisk } = await import("@/git-native");
+      const folder = await createFolderOnDisk({
+        name,
+        parentId: rootId,
+        folders: state.collections.folders,
+        workspaceRootPath: state.collections.filesystemRootPath,
+        workspaceId: `fs:${state.git.workspaceName ?? "project"}`,
+      });
+      void dispatch(
+        (await import("../thunks/gitThunks")).refreshGitStatus(),
+      );
+      void dispatch(
+        (await import("../thunks/gitThunks")).refreshFilesystemCollections(),
+      );
+      return folder;
+    }
+    return db.createFolder(name, null, state.workspaces.activeWorkspaceId);
   },
 );
 
@@ -68,9 +135,43 @@ export const renameFolder = createAsyncThunk(
 
 export const renameRequest = createAsyncThunk(
   "collections/renameRequest",
-  async ({ id, name }: { id: string; name: string }) => {
-    await db.renameRequest(id, name);
-    return { id, name };
+  async ({ id, name }: { id: string; name: string }, { getState, dispatch }) => {
+    const trimmed = name.trim();
+    const state = getState() as import("../index").RootState;
+
+    if (
+      state.collections.sourceMode === "filesystem" &&
+      state.collections.filesystemRootPath
+    ) {
+      const existing = state.collections.requests.find((r) => r.id === id);
+      if (!existing) {
+        throw new Error("Request not found");
+      }
+      const { saveRequestOnDisk } = await import("@/git-native");
+      await saveRequestOnDisk({
+        request: { ...db.rowToRequest(existing), name: trimmed },
+        collectionId: existing.collection_id,
+        folders: state.collections.folders,
+        workspaceRootPath: state.collections.filesystemRootPath,
+      });
+      void dispatch(
+        (await import("../thunks/gitThunks")).refreshGitStatus(),
+      );
+    } else {
+      await db.renameRequest(id, trimmed);
+    }
+
+    // Keep open tab titles + editor drafts aligned with the sidebar name.
+    const { updateTab } = await import("./tabsSlice");
+    const { updateDraft } = await import("./requestSlice");
+    for (const tab of state.tabs.tabs) {
+      if (tab.requestId !== id) continue;
+      if (tab.kind && tab.kind !== "request") continue;
+      dispatch(updateTab({ id: tab.id, changes: { title: trimmed } }));
+      dispatch(updateDraft({ tabId: tab.id, changes: { name: trimmed } }));
+    }
+
+    return { id, name: trimmed };
   },
 );
 
@@ -126,8 +227,9 @@ export const reorderRequest = createAsyncThunk(
 
 export const deleteFolder = createAsyncThunk(
   "collections/deleteFolder",
-  async (id: string) => {
-    const descendants = await db.getCollections();
+  async (id: string, { getState, dispatch }) => {
+    const state = getState() as import("../index").RootState;
+    const descendants = state.collections.folders;
     const toDelete = new Set<string>([id]);
     const collect = (parentId: string) => {
       for (const f of descendants) {
@@ -138,28 +240,69 @@ export const deleteFolder = createAsyncThunk(
       }
     };
     collect(id);
+
+    const requestIds = state.collections.requests
+      .filter((r) => r.collection_id && toDelete.has(r.collection_id))
+      .map((r) => r.id);
+
     await db.deleteFolder(id);
-    return Array.from(toDelete);
+
+    const { closeTabsForDeletedRequests } = await import(
+      "../thunks/closeTabsForDeletedRequests"
+    );
+    await dispatch(
+      closeTabsForDeletedRequests({
+        requestIds,
+        folderIds: Array.from(toDelete),
+      }),
+    );
+
+    return { folderIds: Array.from(toDelete), requestIds };
   },
 );
 
 export const saveRequestToDb = createAsyncThunk(
   "collections/saveRequest",
-  async ({
-    request,
-    collectionId,
-  }: {
-    request: Parameters<typeof db.saveRequest>[0];
-    collectionId?: string | null;
-  }) => {
+  async (
+    {
+      request,
+      collectionId,
+    }: {
+      request: Parameters<typeof db.saveRequest>[0];
+      collectionId?: string | null;
+    },
+    { getState, dispatch },
+  ) => {
+    const state = getState() as import("../index").RootState;
+    if (
+      state.collections.sourceMode === "filesystem" &&
+      state.collections.filesystemRootPath
+    ) {
+      const { saveRequestOnDisk } = await import("@/git-native");
+      const saved = await saveRequestOnDisk({
+        request,
+        collectionId: collectionId ?? request.collectionId ?? null,
+        folders: state.collections.folders,
+        workspaceRootPath: state.collections.filesystemRootPath,
+      });
+      // Refresh Git Changes only — avoid full tree reparse (collapse / flicker).
+      void dispatch(
+        (await import("../thunks/gitThunks")).refreshGitStatus(),
+      );
+      return saved;
+    }
     return db.saveRequest(request, collectionId);
   },
 );
 
 export const deleteRequestFromDb = createAsyncThunk(
   "collections/deleteRequest",
-  async (id: string) => {
+  async (id: string, { dispatch }) => {
     await db.deleteRequest(id);
+    const { closeTabsForDeletedRequests } = await import(
+      "../thunks/closeTabsForDeletedRequests"
+    );
+    await dispatch(closeTabsForDeletedRequests({ requestIds: [id] }));
     return id;
   },
 );
@@ -188,22 +331,30 @@ export const openImportDialog = createAsyncThunk(
 
 export const confirmCollectionImport = createAsyncThunk(
   "collections/confirmImport",
-  async ({
-    content,
-    filename,
-    formatId,
-    strategy = "duplicate",
-  }: {
-    content: string;
-    filename?: string;
-    formatId?: string;
-    strategy?: ImportConflictStrategy;
-  }) => {
-    const folders = await db.getCollections();
+  async (
+    {
+      content,
+      filename,
+      formatId,
+      strategy = "duplicate",
+    }: {
+      content: string;
+      filename?: string;
+      formatId?: string;
+      strategy?: ImportConflictStrategy;
+    },
+    { getState },
+  ) => {
+    const state = getState() as import("../index").RootState;
+    const workspaceId = state.workspaces.activeWorkspaceId;
+    const folders = await db.getCollections(workspaceId);
     const { result } = importCollectionContent(content, filename, formatId);
     const prepared = prepareImportWithStrategy(result, folders, strategy);
     if (!prepared) return null;
-    return db.importCollection(prepared.data, prepared.options);
+    return db.importCollection(prepared.data, {
+      ...prepared.options,
+      workspaceId,
+    });
   },
 );
 
@@ -226,16 +377,73 @@ const collectionsSlice = createSlice({
     collapseAllTreeFolders: (state) => {
       state.treeCollapseKey += 1;
     },
+    setFilesystemCollections: (
+      state,
+      action: PayloadAction<{
+        folders: CollectionFolder[];
+        requests: SavedRequest[];
+        rootFolderId: string;
+        rootPath: string;
+        projectName: string;
+      }>,
+    ) => {
+      const rootChanged =
+        state.filesystemRootPath !== action.payload.rootPath ||
+        state.sourceMode !== "filesystem";
+
+      state.sourceMode = "filesystem";
+      state.folders = action.payload.folders;
+      state.requests = action.payload.requests;
+      state.filesystemRootPath = action.payload.rootPath;
+      state.filesystemProjectName = action.payload.projectName;
+      state.loading = false;
+
+      // Keep sidebar selection unless it vanished (don't yank users to root).
+      const stillValid =
+        state.selectedFolderId != null &&
+        action.payload.folders.some((f) => f.id === state.selectedFolderId);
+      if (!stillValid) {
+        state.selectedFolderId = action.payload.rootFolderId;
+      }
+
+      // Only collapse when opening a different project — refreshing after
+      // save/create must not wipe expanded folder state.
+      if (rootChanged) {
+        state.treeCollapseKey += 1;
+      }
+    },
+    clearFilesystemCollections: (state) => {
+      state.sourceMode = "sqlite";
+      state.filesystemRootPath = null;
+      state.filesystemProjectName = null;
+      state.folders = [];
+      state.requests = [];
+      state.selectedFolderId = null;
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchCollections.pending, (state) => {
-        state.loading = true;
+        if (state.sourceMode !== "filesystem") {
+          state.loading = true;
+        }
       })
       .addCase(fetchCollections.fulfilled, (state, action) => {
+        if (action.payload.skipped) {
+          state.loading = false;
+          return;
+        }
+        // Ignore stale sqlite responses that arrive after a git project rebind.
+        if (state.sourceMode === "filesystem") {
+          state.loading = false;
+          return;
+        }
         state.folders = action.payload.folders;
         state.requests = action.payload.requests;
         state.loading = false;
+        state.sourceMode = "sqlite";
+        state.filesystemRootPath = null;
+        state.filesystemProjectName = null;
       })
       .addCase(createFolder.fulfilled, (state, action) => {
         state.folders.push(action.payload);
@@ -289,7 +497,7 @@ const collectionsSlice = createSlice({
         }
       })
       .addCase(deleteFolder.fulfilled, (state, action) => {
-        const deletedIds = new Set(action.payload);
+        const deletedIds = new Set(action.payload.folderIds);
         state.folders = state.folders.filter((f) => !deletedIds.has(f.id));
         state.requests = state.requests.filter(
           (r) => !r.collection_id || !deletedIds.has(r.collection_id),
@@ -319,6 +527,11 @@ const collectionsSlice = createSlice({
   },
 });
 
-export const { setSelectedFolder, setSearchQuery, collapseAllTreeFolders } =
-  collectionsSlice.actions;
+export const {
+  setSelectedFolder,
+  setSearchQuery,
+  collapseAllTreeFolders,
+  setFilesystemCollections,
+  clearFilesystemCollections,
+} = collectionsSlice.actions;
 export default collectionsSlice.reducer;

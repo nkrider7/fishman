@@ -14,17 +14,21 @@ interface AuthPanelProps {
   auth: AuthConfig;
   onChange: (auth: AuthConfig) => void;
   collectionId?: string | null;
+  /** When false, hide the Inherit option (used on folder settings). Default true when collectionId set. */
+  allowInherit?: boolean;
 }
 
-const AUTH_TYPES: { value: AuthType; label: string; disabled?: boolean }[] = [
-  { value: "none", label: "None" },
-  { value: "bearer", label: "Bearer Token" },
-  { value: "apikey", label: "API Key" },
-  { value: "basic", label: "Basic Auth" },
-  { value: "oauth2", label: "OAuth 2.0", disabled: true },
-  { value: "jwt", label: "JWT" },
-  { value: "custom", label: "Custom Header" },
-];
+const BASE_AUTH_TYPES: { value: AuthType; label: string; disabled?: boolean }[] =
+  [
+    { value: "none", label: "None" },
+    { value: "inherit", label: "Inherit" },
+    { value: "bearer", label: "Bearer Token" },
+    { value: "apikey", label: "API Key" },
+    { value: "basic", label: "Basic Auth" },
+    { value: "oauth2", label: "OAuth 2.0", disabled: true },
+    { value: "jwt", label: "JWT" },
+    { value: "custom", label: "Custom Header" },
+  ];
 
 function SecretOrVariableInput({
   value,
@@ -58,7 +62,19 @@ function SecretOrVariableInput({
   );
 }
 
-export function AuthPanel({ auth, onChange, collectionId = null }: AuthPanelProps) {
+export function AuthPanel({
+  auth,
+  onChange,
+  collectionId = null,
+  allowInherit,
+}: AuthPanelProps) {
+  const showInherit =
+    allowInherit !== false && (allowInherit === true || Boolean(collectionId));
+
+  const authTypes = BASE_AUTH_TYPES.filter(
+    (t) => t.value !== "inherit" || showInherit,
+  );
+
   const setType = (type: AuthType) => {
     onChange({ type });
   };
@@ -72,7 +88,7 @@ export function AuthPanel({ auth, onChange, collectionId = null }: AuthPanelProp
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {AUTH_TYPES.map((t) => (
+            {authTypes.map((t) => (
               <SelectItem key={t.value} value={t.value} disabled={t.disabled}>
                 {t.label}
                 {t.disabled ? " (Phase 3)" : ""}
@@ -80,6 +96,11 @@ export function AuthPanel({ auth, onChange, collectionId = null }: AuthPanelProp
             ))}
           </SelectContent>
         </Select>
+        {auth.type === "inherit" && (
+          <p className="text-[11px] text-muted-foreground">
+            Uses authentication from the parent collection or folder.
+          </p>
+        )}
       </div>
 
       {auth.type === "bearer" && (

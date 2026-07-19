@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { AppSettings, Theme } from "@/types/settings";
+import type { AppSettings, Theme, WorkspaceLayout } from "@/types/settings";
 import { DEFAULT_SETTINGS } from "@/types/settings";
 import * as db from "@/services/dbService";
 
@@ -12,6 +12,19 @@ const initialState: SettingsState = {
   loaded: false,
 };
 
+/** Strip runtime-only fields before writing settings to the DB. */
+export function toAppSettings(state: SettingsState): AppSettings {
+  return {
+    theme: state.theme,
+    ignoreSsl: state.ignoreSsl,
+    timeoutMs: state.timeoutMs,
+    sidebarCollapsed: state.sidebarCollapsed,
+    workspaceLayout: state.workspaceLayout,
+    activeGlobalEnvironmentId: state.activeGlobalEnvironmentId,
+    activeCollectionEnvironmentIds: state.activeCollectionEnvironmentIds,
+  };
+}
+
 export const loadSettings = createAsyncThunk("settings/load", async () => {
   return db.getSettings();
 });
@@ -21,6 +34,19 @@ export const persistSettings = createAsyncThunk(
   async (settings: AppSettings) => {
     await db.saveSettings(settings);
     return settings;
+  },
+);
+
+/** Merge partial settings into the current state and persist. */
+export const persistSettingsPatch = createAsyncThunk(
+  "settings/persistPatch",
+  async (changes: Partial<AppSettings>, { getState }) => {
+    const current = toAppSettings(
+      (getState() as { settings: SettingsState }).settings,
+    );
+    const next: AppSettings = { ...current, ...changes };
+    await db.saveSettings(next);
+    return next;
   },
 );
 
@@ -40,6 +66,9 @@ const settingsSlice = createSlice({
     setSidebarCollapsed: (state, action: PayloadAction<boolean>) => {
       state.sidebarCollapsed = action.payload;
     },
+    setWorkspaceLayout: (state, action: PayloadAction<WorkspaceLayout>) => {
+      state.workspaceLayout = action.payload;
+    },
     updateSettings: (state, action: PayloadAction<Partial<AppSettings>>) => {
       Object.assign(state, action.payload);
     },
@@ -52,6 +81,9 @@ const settingsSlice = createSlice({
       })
       .addCase(persistSettings.fulfilled, (state, action) => {
         Object.assign(state, action.payload);
+      })
+      .addCase(persistSettingsPatch.fulfilled, (state, action) => {
+        Object.assign(state, action.payload);
       });
   },
 });
@@ -61,6 +93,7 @@ export const {
   setIgnoreSsl,
   setTimeoutMs,
   setSidebarCollapsed,
+  setWorkspaceLayout,
   updateSettings,
 } = settingsSlice.actions;
 export default settingsSlice.reducer;

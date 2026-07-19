@@ -1,8 +1,9 @@
 import type { AuthConfig, KeyValue, RequestDraft } from "@/types/request";
+import { resolveDynamicVariable } from "@/script-engine/builtins";
 
 const VARIABLE_PATTERN = /\{\{([^{}]+)\}\}/g;
 
-export type VariableScope = "global" | "collection";
+export type VariableScope = "global" | "collection" | "folder" | "dynamic";
 
 export interface VariableInfo {
   value: string;
@@ -61,6 +62,8 @@ export function substituteVariables(
   return text.replace(VARIABLE_PATTERN, (match, rawKey: string) => {
     const key = rawKey.trim();
     if (key in variables) return variables[key];
+    const dynamic = resolveDynamicVariable(key);
+    if (dynamic !== undefined) return dynamic;
     return match;
   });
 }
@@ -158,6 +161,9 @@ export function substituteRequestDraft(
       ...field,
       key: substituteVariables(field.key, variables),
       value: substituteVariables(field.value, variables),
+      filePaths: field.filePaths?.map((path) =>
+        substituteVariables(path, variables),
+      ),
     })),
     auth: substituteAuth(request.auth, variables),
   };

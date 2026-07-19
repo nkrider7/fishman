@@ -22,6 +22,24 @@ const initialState: TabsState = {
 
 export const initialRequestTabId = initialTabId;
 
+function ensureAtLeastOneTab(state: TabsState): string | null {
+  if (state.tabs.length > 0) {
+    if (!state.activeTabId || !state.tabs.some((t) => t.id === state.activeTabId)) {
+      state.activeTabId = state.tabs[0]?.id ?? null;
+    }
+    return null;
+  }
+  const id = generateId();
+  state.tabs.push({
+    id,
+    title: "Untitled Request",
+    unsaved: false,
+    pinned: false,
+  });
+  state.activeTabId = id;
+  return id;
+}
+
 const tabsSlice = createSlice({
   name: "tabs",
   initialState,
@@ -32,6 +50,10 @@ const tabsSlice = createSlice({
         id?: string;
         requestId?: string;
         title?: string;
+        kind?: "request" | "runner" | "collection" | "git";
+        runnerCollectionId?: string;
+        runnerFolderId?: string | null;
+        collectionFolderId?: string;
       } | undefined>,
     ) => {
       const id = action.payload?.id ?? generateId();
@@ -41,6 +63,10 @@ const tabsSlice = createSlice({
         requestId: action.payload?.requestId,
         unsaved: false,
         pinned: false,
+        kind: action.payload?.kind ?? "request",
+        runnerCollectionId: action.payload?.runnerCollectionId,
+        runnerFolderId: action.payload?.runnerFolderId,
+        collectionFolderId: action.payload?.collectionFolderId,
       };
       state.tabs.push(tab);
       state.activeTabId = id;
@@ -52,16 +78,19 @@ const tabsSlice = createSlice({
       if (state.activeTabId === action.payload) {
         state.activeTabId = state.tabs[Math.max(0, index - 1)]?.id ?? null;
       }
-      if (state.tabs.length === 0) {
-        const id = generateId();
-        state.tabs.push({
-          id,
-          title: "Untitled Request",
-          unsaved: false,
-          pinned: false,
-        });
-        state.activeTabId = id;
+      ensureAtLeastOneTab(state);
+    },
+    /** Close many tabs at once (e.g. after deleting a collection/folder). */
+    closeTabsByIds: (state, action: PayloadAction<string[]>) => {
+      const toClose = new Set(action.payload);
+      if (toClose.size === 0) return;
+      const wasActiveClosed =
+        state.activeTabId != null && toClose.has(state.activeTabId);
+      state.tabs = state.tabs.filter((t) => !toClose.has(t.id));
+      if (wasActiveClosed) {
+        state.activeTabId = state.tabs[0]?.id ?? null;
       }
+      ensureAtLeastOneTab(state);
     },
     setActiveTab: (state, action: PayloadAction<string>) => {
       state.activeTabId = action.payload;
@@ -95,6 +124,7 @@ const tabsSlice = createSlice({
 export const {
   addTab,
   closeTab,
+  closeTabsByIds,
   setActiveTab,
   updateTab,
   pinTab,

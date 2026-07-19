@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "ws_backend01",
+  "name": "Backend",
+  "description": "Golden fixture for Fishman Git-native workspace",
+  "activeEnvironment": "local",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

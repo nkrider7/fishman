@@ -102,9 +102,19 @@ export function findImports(parsed: ParsedSource): Map<string, string> {
 }
 
 export function isHttpMethod(name: string): boolean {
-  return ["get", "post", "put", "patch", "delete", "options", "head", "all"].includes(
-    name.toLowerCase(),
-  );
+  return [
+    "get",
+    "query",
+    "post",
+    "put",
+    "patch",
+    "delete",
+    "options",
+    "head",
+    "trace",
+    "connect",
+    "all",
+  ].includes(name.toLowerCase());
 }
 
 export function toHttpMethod(name: string): string {

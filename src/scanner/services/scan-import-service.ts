@@ -10,6 +10,7 @@ export async function importScannedEndpoints(
     collectionName: string;
     baseUrl?: string;
     selectedEndpointIds?: string[];
+    workspaceId?: string;
   },
 ) {
   const selectedSet = options.selectedEndpointIds
@@ -28,7 +29,9 @@ export async function importScannedEndpoints(
     requests: collection.requests.map(({ endpoint: _endpoint, ...request }) => request),
   };
 
-  return importCollection(importData);
+  return importCollection(importData, {
+    workspaceId: options.workspaceId,
+  });
 }
 
 export function groupEndpointsByFolder(

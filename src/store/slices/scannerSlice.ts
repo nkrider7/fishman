@@ -4,15 +4,24 @@ import {
   scanProject,
   createTauriFileSystem,
   importScannedEndpoints,
+  scanGitHubRepo,
+  parseGitHubRepoUrl,
+  formatGitHubRepoLabel,
+  toUserFacingGitHubError,
 } from "@/scanner";
 import type { ScanProgress, ScanResult } from "@/scanner/models/scan-result";
 
 export type ScannerStep = "select" | "scanning" | "preview" | "importing" | "done";
+export type ScannerSource = "local" | "github";
 
 interface ScannerState {
   open: boolean;
   step: ScannerStep;
+  source: ScannerSource;
   projectPath: string | null;
+  githubUrl: string;
+  githubRef: string;
+  githubToken: string;
   collectionName: string;
   baseUrl: string;
   progress: ScanProgress | null;
@@ -24,7 +33,11 @@ interface ScannerState {
 const initialState: ScannerState = {
   open: false,
   step: "select",
+  source: "local",
   projectPath: null,
+  githubUrl: "",
+  githubRef: "",
+  githubToken: "",
   collectionName: "Scanned API",
   baseUrl: "http://localhost:3000",
   progress: null,
@@ -50,40 +63,71 @@ export const pickProjectFolder = createAsyncThunk(
 export const runBackendScan = createAsyncThunk(
   "scanner/runScan",
   async (
-    {
-      projectPath,
-      baseUrl,
-    }: { projectPath: string; baseUrl?: string },
+    payload: {
+      source: ScannerSource;
+      projectPath?: string | null;
+      githubUrl?: string;
+      githubRef?: string;
+      githubToken?: string;
+      baseUrl?: string;
+    },
     { dispatch },
   ) => {
+    const onProgress = (progress: ScanProgress) => {
+      dispatch(setScanProgress(progress));
+    };
+
+    if (payload.source === "github") {
+      const url = payload.githubUrl?.trim() ?? "";
+      if (!url) throw new Error("Enter a GitHub repository URL.");
+      try {
+        return await scanGitHubRepo({
+          url,
+          ref: payload.githubRef?.trim() || undefined,
+          token: payload.githubToken?.trim() || undefined,
+          baseUrl: payload.baseUrl,
+          onProgress,
+        });
+      } catch (err) {
+        throw new Error(toUserFacingGitHubError(err));
+      }
+    }
+
+    const projectPath = payload.projectPath;
+    if (!projectPath) {
+      throw new Error("Select a project folder to scan.");
+    }
     const fs = createTauriFileSystem();
     return scanProject(fs, {
       projectPath,
-      baseUrl,
-      onProgress: (progress) => {
-        dispatch(setScanProgress(progress));
-      },
+      baseUrl: payload.baseUrl,
+      onProgress,
     });
   },
 );
 
 export const importScanResult = createAsyncThunk(
   "scanner/import",
-  async ({
-    result,
-    collectionName,
-    baseUrl,
-    selectedEndpointIds,
-  }: {
-    result: ScanResult;
-    collectionName: string;
-    baseUrl?: string;
-    selectedEndpointIds: string[];
-  }) => {
+  async (
+    {
+      result,
+      collectionName,
+      baseUrl,
+      selectedEndpointIds,
+    }: {
+      result: ScanResult;
+      collectionName: string;
+      baseUrl?: string;
+      selectedEndpointIds: string[];
+    },
+    { getState },
+  ) => {
+    const state = getState() as import("../index").RootState;
     return importScannedEndpoints(result, {
       collectionName,
       baseUrl,
       selectedEndpointIds,
+      workspaceId: state.workspaces.activeWorkspaceId,
     });
   },
 );
@@ -109,6 +153,10 @@ const scannerSlice = createSlice({
       state.projectPath = null;
       state.selectedEndpointIds = [];
     },
+    setScannerSource(state, action: PayloadAction<ScannerSource>) {
+      state.source = action.payload;
+      state.error = null;
+    },
     setCollectionName(state, action: PayloadAction<string>) {
       state.collectionName = action.payload;
     },
@@ -117,6 +165,25 @@ const scannerSlice = createSlice({
     },
     setProjectPath(state, action: PayloadAction<string | null>) {
       state.projectPath = action.payload;
+    },
+    setGitHubUrl(state, action: PayloadAction<string>) {
+      state.githubUrl = action.payload;
+      state.error = null;
+      try {
+        const parsed = parseGitHubRepoUrl(action.payload);
+        state.collectionName = `${parsed.repo} API`;
+        if (!state.githubRef && parsed.ref) {
+          state.githubRef = parsed.ref;
+        }
+      } catch {
+        // leave collection name until URL is valid
+      }
+    },
+    setGitHubRef(state, action: PayloadAction<string>) {
+      state.githubRef = action.payload;
+    },
+    setGitHubToken(state, action: PayloadAction<string>) {
+      state.githubToken = action.payload;
     },
     setScanProgress(state, action: PayloadAction<ScanProgress>) {
       state.progress = action.payload;
@@ -153,6 +220,7 @@ const scannerSlice = createSlice({
       .addCase(pickProjectFolder.fulfilled, (state, action) => {
         if (action.payload) {
           state.projectPath = action.payload;
+          state.source = "local";
           const folderName = action.payload.split(/[/\\]/).pop() ?? "Scanned API";
           state.collectionName = `${folderName} API`;
         }
@@ -182,7 +250,7 @@ const scannerSlice = createSlice({
         state.step = "select";
         state.error =
           action.error.message ??
-          "Scan failed. Re-select the project folder to grant read access.";
+          "Scan failed. Check the folder path or GitHub URL and try again.";
       })
       .addCase(importScanResult.pending, (state) => {
         state.step = "importing";
@@ -201,9 +269,13 @@ const scannerSlice = createSlice({
 export const {
   openScanner,
   closeScanner,
+  setScannerSource,
   setCollectionName,
   setBaseUrl,
   setProjectPath,
+  setGitHubUrl,
+  setGitHubRef,
+  setGitHubToken,
   setScanProgress,
   setSelectedEndpointIds,
   toggleEndpointSelection,
@@ -212,5 +284,7 @@ export const {
   setScannerStep,
   setScannerError,
 } = scannerSlice.actions;
+
+export { formatGitHubRepoLabel };
 
 export default scannerSlice.reducer;

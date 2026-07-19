@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { loadSettings } from "@/store/slices/settingsSlice";
-import { fetchCollections } from "@/store/slices/collectionsSlice";
-import { fetchHistory } from "@/store/slices/historySlice";
-import { fetchEnvironments } from "@/store/slices/environmentSlice";
 import { initializeDatabase } from "@/services/dbService";
+import { bootstrapWorkspaces } from "@/workspaces";
 
 export function useTheme() {
   const theme = useAppSelector((s) => s.settings.theme);
@@ -39,14 +37,11 @@ export function useAppInit() {
       try {
         await initializeDatabase();
         dispatch(loadSettings());
-        await Promise.all([
-          dispatch(fetchCollections()),
-          dispatch(fetchHistory()),
-          dispatch(fetchEnvironments()),
-        ]);
+        await dispatch(bootstrapWorkspaces());
       } finally {
         const elapsed = Date.now() - startedAt;
-        const minSplashMs = 300;
+        // Keep splash visible briefly only if boot was instant (avoids flash)
+        const minSplashMs = 120;
         if (elapsed < minSplashMs) {
           await new Promise((resolve) =>
             setTimeout(resolve, minSplashMs - elapsed),

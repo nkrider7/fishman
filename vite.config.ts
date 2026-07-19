@@ -12,7 +12,14 @@ export default defineConfig(async () => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@tauri-icons": path.resolve(__dirname, "./src-tauri/icons"),
+      buffer: "buffer/",
     },
+  },
+  optimizeDeps: {
+    include: ["buffer", "isomorphic-git", "isomorphic-git/http/web"],
+  },
+  define: {
+    global: "globalThis",
   },
   clearScreen: false,
   server: {

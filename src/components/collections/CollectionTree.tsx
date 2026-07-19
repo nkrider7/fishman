@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Folder,
   GripVertical,
+  Play,
   Star,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
@@ -29,11 +30,15 @@ import {
   reorderRequest,
   renameFolder,
   renameRequest,
+  saveRequestToDb,
   setSearchQuery,
   setSelectedFolder,
 } from "@/store/slices/collectionsSlice";
 import { openRequestTab } from "@/store/thunks/openRequestTab";
+import { openCollectionRunner } from "@/store/thunks/runnerThunks";
+import { openCollectionSettings } from "@/store/thunks/collectionSettingsThunks";
 import type { CollectionFolder, SavedRequest } from "@/types/collection";
+import { buildFolderChain, resolveNearestPresets } from "@/collections/inheritance";
 import { CollectionHeader } from "@/components/collections/CollectionHeader";
 import { ImportDialog } from "@/components/import-export/ImportDialog";
 import { ExportDialog } from "@/components/import-export/ExportDialog";
@@ -47,7 +52,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { createEmptyRequest } from "@/types/request";
 import { getMethodClass } from "@/utils/requestBuilder";
+import { matchesMethodSearch, parseMethodSearch } from "@/http-methods";
 import { cn } from "@/utils/cn";
+import { findRootCollectionId } from "@/utils/collectionUtils";
 
 type DragItem = { type: "folder" | "request"; id: string };
 type DropData =
@@ -65,7 +72,6 @@ const bySortOrder = <T extends { sort_order: number; created_at: number }>(
   b: T,
 ) => a.sort_order - b.sort_order || a.created_at - b.created_at;
 
-import { findRootCollectionId } from "@/utils/collectionUtils";
 const treeCollisionDetection: CollisionDetection = (args) => {
   const collisions = pointerWithin(args);
   if (collisions.length === 0) return collisions;
@@ -328,17 +334,17 @@ export function CollectionTree() {
       .filter((f) => !f.parent_id)
       .sort(bySortOrder);
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+      const { textQuery } = parseMethodSearch(searchQuery);
       const matchingFolderIds = new Set(
-        folders.filter((f) => f.name.toLowerCase().includes(q)).map((f) => f.id),
+        folders
+          .filter(
+            (f) => textQuery && f.name.toLowerCase().includes(textQuery),
+          )
+          .map((f) => f.id),
       );
       const matchingRequestFolderIds = new Set(
         requests
-          .filter(
-            (r) =>
-              r.name.toLowerCase().includes(q) ||
-              r.url.toLowerCase().includes(q),
-          )
+          .filter((r) => matchesMethodSearch(r.method, r.name, r.url, searchQuery))
           .map((r) => r.collection_id)
           .filter(Boolean) as string[],
       );
@@ -356,13 +362,12 @@ export function CollectionTree() {
       }
       roots = roots.filter(
         (f) =>
-          f.name.toLowerCase().includes(q) ||
+          (textQuery && f.name.toLowerCase().includes(textQuery)) ||
           ancestorIds.has(f.id) ||
           requests.some(
             (r) =>
               r.collection_id === f.id &&
-              (r.name.toLowerCase().includes(q) ||
-                r.url.toLowerCase().includes(q)),
+              matchesMethodSearch(r.method, r.name, r.url, searchQuery),
           ),
       );
     }
@@ -387,6 +392,7 @@ export function CollectionTree() {
     if (!isFolderExpanded(folderId)) {
       setExpanded((prev) => ({ ...prev, [folderId]: true }));
     }
+    void dispatch(openCollectionSettings(folderId));
   };
 
   const handleNewFolder = (parentId?: string | null) => {
@@ -394,14 +400,31 @@ export function CollectionTree() {
     if (parentId) setExpanded((prev) => ({ ...prev, [parentId]: true }));
   };
 
-  const handleNewRequest = (collectionId?: string | null) => {
+  const handleNewRequest = async (collectionId?: string | null) => {
     const draft = createEmptyRequest("New Request");
     if (collectionId) {
       draft.collectionId = collectionId;
       setExpanded((prev) => ({ ...prev, [collectionId]: true }));
+
+      const chain = buildFolderChain(collectionId, folders);
+      const presets = resolveNearestPresets(chain);
+      if (presets.defaultMethod) draft.method = presets.defaultMethod;
+      if (presets.baseUrl) draft.url = presets.baseUrl;
+      if (presets.hasAuth) draft.auth = { type: "inherit" };
     }
-    dispatch(openRequestTab({ request: draft, forceNew: true }));
     dispatch(setSelectedFolder(collectionId ?? null));
+
+    try {
+      const saved = await dispatch(
+        saveRequestToDb({ request: draft, collectionId }),
+      ).unwrap();
+      await dispatch(
+        openRequestTab({ savedRequest: saved, forceNew: true }),
+      );
+    } catch (error) {
+      console.error("[fishman] failed to create request", error);
+      dispatch(openRequestTab({ request: draft, forceNew: true }));
+    }
   };
 
   const startRename = (
@@ -547,6 +570,11 @@ export function CollectionTree() {
       .sort(bySortOrder);
     const childRequests = requests
       .filter((r) => r.collection_id === folder.id)
+      .filter(
+        (r) =>
+          !searchQuery.trim() ||
+          matchesMethodSearch(r.method, r.name, r.url, searchQuery),
+      )
       .sort(bySortOrder);
     const isExpanded = isFolderExpanded(folder.id);
     const isRenaming =
@@ -612,6 +640,11 @@ export function CollectionTree() {
                       type="button"
                       className="flex w-full min-w-0 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
                       onClick={() => selectFolder(folder.id)}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startRename("folder", folder.id, folder.name);
+                      }}
                     >
                       <Folder className="h-4 w-4 shrink-0 text-amber-500" />
                       <span className="truncate">{folder.name}</span>
@@ -622,11 +655,29 @@ export function CollectionTree() {
             </DroppableTreeRow>
           </ContextMenuTrigger>
           <ContextMenuContent>
+            <ContextMenuItem onClick={() => selectFolder(folder.id)}>
+              Open
+            </ContextMenuItem>
             <ContextMenuItem onClick={() => handleNewRequest(folder.id)}>
               Add request
             </ContextMenuItem>
             <ContextMenuItem onClick={() => handleNewFolder(folder.id)}>
               Add folder
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const rootIdForRun =
+                  findRootCollectionId(folder.id, folders) ?? folder.id;
+                void dispatch(
+                  openCollectionRunner({
+                    collectionId: rootIdForRun,
+                    folderId: folder.parent_id ? folder.id : null,
+                  }),
+                );
+              }}
+            >
+              <Play className="mr-2 h-3.5 w-3.5" />
+              Run
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -703,6 +754,11 @@ export function CollectionTree() {
                 type="button"
                 className="flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
                 onClick={() => openSavedRequest(request)}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  startRename("request", request.id, request.name);
+                }}
               >
                 <span className="w-4 shrink-0" aria-hidden />
                 <span
@@ -749,6 +805,11 @@ export function CollectionTree() {
 
   const rootRequests = requests
     .filter((r) => !r.collection_id)
+    .filter(
+      (r) =>
+        !searchQuery.trim() ||
+        matchesMethodSearch(r.method, r.name, r.url, searchQuery),
+    )
     .sort(bySortOrder);
 
   const rootEntries = useMemo(
@@ -791,7 +852,7 @@ export function CollectionTree() {
           )}
           {rootEntries.length === 0 && (
             <p className="px-3 py-4 text-sm text-muted-foreground">
-              No collections yet. Click + to create or open a collection.
+              No collections yet. Click + to create, or open a Git project.
             </p>
           )}
         </TreeScrollRoot>

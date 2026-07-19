@@ -67,7 +67,11 @@ export function VariablePopover({
       ? "Collection"
       : scope === "global"
         ? "Global"
-        : "Unresolved";
+        : scope === "folder"
+          ? "Folder"
+          : scope === "dynamic"
+            ? "Dynamic"
+            : "Unresolved";
 
   const editScopeLabel =
     editScope === "collection"
@@ -83,7 +87,15 @@ export function VariablePopover({
         className,
       )}
       style={style}
-      onMouseDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => {
+        // Keep underlying field from stealing focus, but allow popover
+        // controls (edit input / buttons) to be interactive.
+        const target = e.target as HTMLElement | null;
+        if (target?.closest("input, textarea, button, [role='button']")) {
+          return;
+        }
+        e.preventDefault();
+      }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <span className="truncate font-mono text-sm font-medium">{name}</span>
@@ -104,6 +116,10 @@ export function VariablePopover({
                 "bg-amber-500/15 text-amber-500 dark:text-amber-400",
               scope === "global" &&
                 "bg-sky-500/15 text-sky-500 dark:text-sky-400",
+              scope === "folder" &&
+                "bg-teal-500/15 text-teal-500 dark:text-teal-400",
+              scope === "dynamic" &&
+                "bg-violet-500/15 text-violet-500 dark:text-violet-400",
               scope === "unresolved" &&
                 "bg-red-500/15 text-red-500 dark:text-red-400",
             )}
@@ -115,7 +131,7 @@ export function VariablePopover({
 
       {editing ? (
         <div className="space-y-2">
-          {editEnvName && editScopeLabel && (
+          {canEdit && editEnvName && editScopeLabel && (
             <p className="text-[10px] text-muted-foreground">
               Saving to{" "}
               <span className="font-medium text-foreground">{editEnvName}</span>{" "}
@@ -149,12 +165,11 @@ export function VariablePopover({
             disabled={!canEdit}
             placeholder="Enter value"
           />
-          {!canEdit && (
+          {!canEdit ? (
             <p className="text-[10px] text-muted-foreground">
-              Select an active environment to edit variables.
+              Create or select an environment to edit variables.
             </p>
-          )}
-          {canEdit && (
+          ) : (
             <p className="text-[10px] text-muted-foreground">
               Enter to save, Esc to cancel
             </p>

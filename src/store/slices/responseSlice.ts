@@ -32,8 +32,16 @@ const responseSlice = createSlice({
       delete state.responses[action.payload];
       delete state.loading[action.payload];
     },
+    replaceResponses: (
+      state,
+      action: PayloadAction<Record<string, ApiResponse | null>>,
+    ) => {
+      state.responses = action.payload;
+      state.loading = {};
+    },
   },
 });
 
-export const { setLoading, setResponse, clearResponse } = responseSlice.actions;
+export const { setLoading, setResponse, clearResponse, replaceResponses } =
+  responseSlice.actions;
 export default responseSlice.reducer;

@@ -12,6 +12,7 @@ export interface HistoryEntry {
   request_snapshot_json: string;
   response_snapshot_json: string;
   created_at: number;
+  workspace_id?: string;
 }
 
 export interface HistorySnapshot {

@@ -10,14 +10,20 @@ import {
   X,
 } from "lucide-react";
 import { AppIcon } from "@/components/common/AppIcon";
+import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
-import { setSidebarCollapsed } from "@/store/slices/settingsSlice";
+import {
+  persistSettingsPatch,
+  setSidebarCollapsed,
+} from "@/store/slices/settingsSlice";
 import { setResponsePanelVisible } from "@/store/slices/uiSlice";
+import type { WorkspaceLayout } from "@/types/settings";
 import { cn } from "@/utils/cn";
 
 export function TitleBar() {
   const dispatch = useAppDispatch();
   const collapsed = useAppSelector((s) => s.settings.sidebarCollapsed);
+  const workspaceLayout = useAppSelector((s) => s.settings.workspaceLayout);
   const responseVisible = useAppSelector((s) => s.ui.responsePanelVisible);
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -55,13 +61,23 @@ export function TitleBar() {
     await getCurrentWindow().close();
   };
 
+  const selectLayout = (layout: WorkspaceLayout) => {
+    if (responseVisible && workspaceLayout === layout) {
+      dispatch(setResponsePanelVisible(false));
+      return;
+    }
+    if (workspaceLayout !== layout) {
+      dispatch(persistSettingsPatch({ workspaceLayout: layout }));
+    }
+    dispatch(setResponsePanelVisible(true));
+  };
+
   return (
-    <header className="flex h-7 shrink-0 select-none items-center border-b border-border/60 bg-[#111111] text-foreground">
-      {/* Drag region — left */}
-      <div
-        className="flex h-full w-28 items-center"
-        data-tauri-drag-region
-      />
+    <header className="flex h-8 shrink-0 select-none items-center border-b border-border/60 bg-muted/50 text-foreground">
+      {/* Workspace switcher — left (not a drag region so clicks work) */}
+      <div className="flex h-full min-w-36 max-w-52 items-center gap-1 pl-2.5 pr-1">
+        <WorkspaceSwitcher />
+      </div>
 
       {/* Center — logo + name */}
       <div
@@ -69,13 +85,12 @@ export function TitleBar() {
         data-tauri-drag-region
         onDoubleClick={toggleMaximize}
       >
-        <AppIcon size="sm" />
-        <span className="text-xs font-semibold tracking-wide">Fishman</span>
+        <AppIcon size="textlogo" />
       </div>
 
       {/* Right — layout toggles + window controls */}
-      <div className="flex h-full items-center">
-        <div className="flex items-center  px-1">
+      <div className="flex h-full items-center gap-1 pr-1">
+        <div className="flex items-center gap-0.5 rounded-md border border-border/50 bg-background/40 p-0.5">
           <TitleBarButton
             active={!collapsed}
             title="Toggle sidebar"
@@ -84,44 +99,41 @@ export function TitleBar() {
             <PanelLeft className="h-3.5 w-3.5" />
           </TitleBarButton>
           <TitleBarButton
-            active={responseVisible}
-            title="Toggle response panel"
-            onClick={() =>
-              dispatch(setResponsePanelVisible(!responseVisible))
-            }
+            active={responseVisible && workspaceLayout === "vertical"}
+            title="Vertical layout (response below)"
+            onClick={() => selectLayout("vertical")}
           >
             <PanelBottom className="h-3.5 w-3.5" />
           </TitleBarButton>
           <TitleBarButton
-            active={false}
-            title="Toggle right panel"
-            onClick={() => {}}
-            disabled
+            active={responseVisible && workspaceLayout === "horizontal"}
+            title="Horizontal layout (response beside)"
+            onClick={() => selectLayout("horizontal")}
           >
-            <PanelRight className="h-3.5 w-3.5 opacity-40" />
+            <PanelRight className="h-3.5 w-3.5" />
           </TitleBarButton>
         </div>
 
         {isTauri() && (
-          <div className="flex items-center">
+          <div className="ml-1 flex items-center gap-0.5 border-l border-border/50 pl-1">
             <TitleBarButton
               title="Minimize"
               onClick={handleMinimize}
-              className="w-10"
+              className="w-9"
             >
               <Minus className="h-3.5 w-3.5" />
             </TitleBarButton>
             <TitleBarButton
               title={isMaximized ? "Restore" : "Maximize"}
               onClick={toggleMaximize}
-              className="w-10"
+              className="w-9"
             >
               <Square className="h-3 w-3" />
             </TitleBarButton>
             <TitleBarButton
               title="Close"
               onClick={handleClose}
-              className="w-10 hover:bg-red-600 hover:text-white"
+              className="w-9 hover:bg-destructive hover:text-destructive-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </TitleBarButton>
@@ -154,8 +166,8 @@ function TitleBarButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-6 p-2 rounded-md items-center justify-center text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground disabled:pointer-events-none",
-        active && "text-foreground",
+        "flex h-6 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none",
+        active && "bg-accent text-foreground",
         className,
       )}
     >

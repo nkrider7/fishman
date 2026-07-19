@@ -3,6 +3,12 @@ import type {
   HttpMethod,
   KeyValue,
   RequestDraft,
+  RequestScripts,
+} from "@/types/request";
+import { EMPTY_SCRIPTS } from "@/types/request";
+import {
+  formatFormDataFileLabel,
+  getFormDataFilePaths,
 } from "@/types/request";
 import { generateId } from "@/utils/id";
 import type { ImportResult, ImportWarning, ImportPlugin } from "../core/types";
@@ -49,9 +55,15 @@ interface PostmanBody {
   options?: { raw?: { language?: string } };
 }
 
+interface PostmanEvent {
+  listen?: string;
+  script?: { exec?: string | string[]; type?: string };
+}
+
 interface PostmanItem {
   name: string;
   item?: PostmanItem[];
+  event?: PostmanEvent[];
   request?: {
     method?: string;
     header?: { key: string; value: string; disabled?: boolean }[];
@@ -120,6 +132,56 @@ function parseHeaders(
   }));
 }
 
+function normalizePostmanFileSrc(src?: string | string[]): string[] {
+  if (!src) return [];
+  return (Array.isArray(src) ? src : [src]).filter(Boolean);
+}
+
+function parseFormDataItems(items: PostmanFormDataItem[]): FormDataField[] {
+  const fields: FormDataField[] = [];
+
+  for (const item of items) {
+    const isFile = item.type === "file";
+
+    if (isFile) {
+      const paths = normalizePostmanFileSrc(item.src);
+      const existing = fields.find(
+        (field) => field.key === item.key && field.type === "file",
+      );
+
+      if (existing) {
+        const merged = [
+          ...getFormDataFilePaths(existing),
+          ...paths.filter((path) => !getFormDataFilePaths(existing).includes(path)),
+        ];
+        existing.filePaths = merged.length > 0 ? merged : undefined;
+        existing.value = formatFormDataFileLabel(merged);
+        existing.enabled = existing.enabled && !item.disabled;
+      } else {
+        fields.push({
+          id: generateId(),
+          key: item.key,
+          type: "file",
+          filePaths: paths.length > 0 ? paths : undefined,
+          value: paths.length > 0 ? formatFormDataFileLabel(paths) : "",
+          enabled: !item.disabled,
+        });
+      }
+      continue;
+    }
+
+    fields.push({
+      id: generateId(),
+      key: item.key,
+      type: "text",
+      value: item.value ?? "",
+      enabled: !item.disabled,
+    });
+  }
+
+  return fields;
+}
+
 function parseBody(
   body?: PostmanBody,
 ): Pick<RequestDraft, "bodyType" | "body" | "formDataFields"> {
@@ -128,22 +190,7 @@ function parseBody(
   }
 
   if (body.mode === "formdata" && body.formdata) {
-    const formDataFields: FormDataField[] = body.formdata.map((item) => {
-      const isFile = item.type === "file";
-      const src = Array.isArray(item.src) ? item.src[0] : item.src;
-      return {
-        id: generateId(),
-        key: item.key,
-        type: isFile ? "file" : "text",
-        value: isFile
-          ? src
-            ? (src.split(/[/\\]/).pop() ?? src)
-            : ""
-          : (item.value ?? ""),
-        filePath: isFile && src ? src : undefined,
-        enabled: !item.disabled,
-      };
-    });
+    const formDataFields = parseFormDataItems(body.formdata);
     return { bodyType: "form-data", body: "", formDataFields };
   }
 
@@ -266,6 +313,24 @@ function parseVariables(
     }));
 }
 
+function parseScripts(events?: PostmanEvent[]): RequestScripts {
+  const scripts: RequestScripts = { ...EMPTY_SCRIPTS };
+
+  for (const event of events ?? []) {
+    const exec = event.script?.exec;
+    const code = Array.isArray(exec) ? exec.join("\n") : exec ?? "";
+    if (!code.trim()) continue;
+
+    if (event.listen === "prerequest") {
+      scripts.preRequest = code;
+    } else if (event.listen === "test") {
+      scripts.tests = scripts.tests ? `${scripts.tests}\n\n${code}` : code;
+    }
+  }
+
+  return scripts;
+}
+
 function walkItems(
   items: PostmanItem[],
   parentId: string,
@@ -319,6 +384,7 @@ function walkItems(
         body,
         formDataFields,
         auth,
+        scripts: parseScripts(item.event),
         collectionId: parentId,
       };
       requests.push({

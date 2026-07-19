@@ -17,8 +17,8 @@ npm install && npm run tauri dev
 | | Fishman | Typical API clients |
 |---|---|---|
 | **Runtime** | Native Tauri + Rust HTTP | Heavy Electron / browser-only |
-| **Data** | Local SQLite — yours alone | Often cloud-synced by default |
-| **Code → collections** | Scan Express, NestJS, Fastify, and more | Manual entry or OpenAPI only |
+| **Data** | Local SQLite + optional Git-native folders | Often cloud-synced by default |
+| **Code → collections** | Scan Express, NestJS, FastAPI, Spring Boot, and more | Manual entry or OpenAPI only |
 | **UI** | VS Code-style, keyboard-first | Cluttered or web-app laggy |
 | **Import / export** | Postman + native Fishman format | Vendor-specific silos |
 
@@ -36,11 +36,14 @@ npm install && npm run tauri dev
 
 ### Request builder
 
-- Full REST methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`
+- Full REST methods: `GET`, `QUERY`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`, `CONNECT`
+- First-class **HTTP QUERY** (RFC 10008) — safe, idempotent requests with a body
 - Query params, headers, and auth in dedicated tabs
 - Body types: JSON, form-data (text + files), `x-www-form-urlencoded`, raw, XML, HTML, GraphQL, binary
 - Auth: Bearer, Basic, API Key (header or query), JWT, OAuth2 token, custom header
 - Multi-tab workspace with pin, unsaved indicators, and close shortcuts
+- **Generate code** snippets (cURL, HTTPie, fetch, axios, Python requests, and more) from the active request
+- **Workspaces** — isolate collections, environments, tabs, history, and cookies; switch in-app or open another workspace in a new window
 
 ### Response viewer
 
@@ -55,6 +58,7 @@ npm install && npm run tauri dev
 - Nested folders with rename, duplicate, and delete
 - Organize requests the way your API is structured
 - Auto-saved history grouped by date — replay anything you sent
+- **Git-native collections** — store APIs as `fishman/**/*.fish` JSON next to your code; commit, branch, and review like source (see [docs/git-native.md](docs/git-native.md)).
 
 ### Environments & variables
 
@@ -65,7 +69,7 @@ npm install && npm run tauri dev
 
 ### Project scanner
 
-Point Fishman at a Node.js project and auto-generate a collection from real routes.
+Point Fishman at a local backend folder **or a GitHub repo URL** and auto-generate a collection from real routes.
 
 **Supported frameworks today:**
 
@@ -79,8 +83,12 @@ Point Fishman at a Node.js project and auto-generate a collection from real rout
 | NestJS | Nest decorators / structure |
 | Next.js | App / route conventions |
 | Bun / Nitro | Bun ecosystem markers |
+| FastAPI / Flask / Django | Python manifests |
+| Spring Boot | Maven/Gradle + `@RestController` |
 
-AST-based scanning (Babel + analysis) picks up mounts, routers, and handler bindings — not just string greps.
+Scan sources: **local folder** or **GitHub URL** (remote fetch into memory — no manual clone).
+
+AST-based / structured scanning picks up mounts, controllers, and handler bindings — not just string greps.
 
 ### Import & export
 
@@ -180,6 +188,7 @@ fishman/
 │   ├── services/             # API, DB, import/export, environments
 │   ├── scanner/              # Project → collection scanner
 │   ├── import-export/        # Format plugins (Postman, Fishman)
+│   ├── git-native/           # YAML collection codec (filesystem / Git)
 │   ├── hooks/                # Shared React hooks
 │   ├── utils/                # Helpers (variables, formatting, …)
 │   ├── types/                # TypeScript models
@@ -227,9 +236,30 @@ All of this is stored locally via SQLite migrations under `src-tauri/migrations/
 
 ---
 
+## Git-native collections
+
+Fishman workspaces live in your project as plain JSON — no proprietary DB for shared API collections:
+
+```
+project/
+└── fishman/
+    ├── workspace.json
+    ├── environments/
+    │   ├── local.json
+    │   └── local.secret.json   # gitignored
+    └── collections/
+        └── Auth/Login.fish
+```
+
+- Pretty, deterministic JSON (stable key order → clean Git diffs)
+- Secrets stay in `*.secret.json` / `.env.secret`
+- Detect `.git` and (upcoming) full Git status / commit / branch / conflict UI
+
+Format and roadmap: [docs/git-native.md](docs/git-native.md).
+
 ## Roadmap-friendly design
 
-The import/export and scanner layers are **plugin-based**. Formats and frameworks can be added without rewriting the core app. Planned format hooks include Bruno, OpenAPI/Swagger, Insomnia, HAR, and cURL; language detection already anticipates Python, Go, Rust, Java, PHP, C#, and Ruby for future scanners.
+The import/export and scanner layers are **plugin-based**. Formats and frameworks can be added without rewriting the core app. Planned format hooks include Bruno, OpenAPI/Swagger, Insomnia, HAR, and cURL; language detection already covers Node, Python, and Java (Spring Boot), and anticipates Go, Rust, PHP, C#, and Ruby for future scanners.
 
 ---
 

@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { X, Pin, Plus } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { closeTab, setActiveTab, pinTab } from "@/store/slices/tabsSlice";
-import { updateDraft } from "@/store/slices/requestSlice";
+import { removeDraft, updateDraft } from "@/store/slices/requestSlice";
+import { clearResponse } from "@/store/slices/responseSlice";
+import { clearScriptExecution } from "@/store/slices/scriptExecutionSlice";
+import { closeRunnerSession } from "@/store/slices/runnerSlice";
+import { closeSettingsDraft } from "@/store/slices/collectionSettingsSlice";
 import { updateTab } from "@/store/slices/tabsSlice";
 import { openRequestTab } from "@/store/thunks/openRequestTab";
 import { getMethodClass } from "@/utils/requestBuilder";
@@ -11,27 +15,90 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { createEmptyRequest, type Tab } from "@/types/request";
 
+function tabMethodLabel(tab: Tab, draftMethod?: string): string {
+  if (tab.kind === "runner") return "RUN";
+  if (tab.kind === "collection") return "SET";
+  if (tab.kind === "git") return "GIT";
+  return draftMethod ?? "GET";
+}
+
 export function TabBar() {
   const dispatch = useAppDispatch();
   const tabs = useAppSelector((s) => s.tabs.tabs);
   const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
   const drafts = useAppSelector((s) => s.request.drafts);
+  const runnerTabId = useAppSelector((s) => s.runner.tabId);
+  const settingsTabId = useAppSelector((s) => s.collectionSettings.draft?.tabId);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
+
+  // Vertical mouse wheel → horizontal scroll while hovering the tab strip.
+  useEffect(() => {
+    const root = scrollRootRef.current;
+    if (!root) return;
+    const viewport = root.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLElement | null;
+    if (!viewport) return;
+
+    const onWheel = (e: WheelEvent) => {
+      const maxScroll = viewport.scrollWidth - viewport.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const delta =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (delta === 0) return;
+
+      const next = Math.min(
+        maxScroll,
+        Math.max(0, viewport.scrollLeft + delta),
+      );
+      if (next === viewport.scrollLeft) return;
+
+      e.preventDefault();
+      viewport.scrollLeft = next;
+    };
+
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Keep the active tab visible when switching via Ctrl+Tab / click.
+  useEffect(() => {
+    if (!activeTabId) return;
+    const el = scrollRootRef.current?.querySelector(
+      `[data-tab-id="${CSS.escape(activeTabId)}"]`,
+    );
+    el?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activeTabId]);
 
   const handleClose = (tabId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (tabId === runnerTabId) {
+      dispatch(closeRunnerSession());
+    }
+    if (tabId === settingsTabId) {
+      dispatch(closeSettingsDraft());
+    }
     dispatch(closeTab(tabId));
+    dispatch(removeDraft(tabId));
+    dispatch(clearResponse(tabId));
+    dispatch(clearScriptExecution(tabId));
+  };
+
+  const handleNewTab = () => {
+    dispatch(openRequestTab({ request: createEmptyRequest(), forceNew: true }));
   };
 
   return (
     <div className="flex h-8 shrink-0 items-center border-b bg-muted/30">
-      <ScrollArea className="flex-1 whitespace-nowrap">
+      <ScrollArea ref={scrollRootRef} className="flex-1 whitespace-nowrap">
         <div className="flex h-8 items-stretch">
           {tabs.map((tab) => (
             <RequestTab
               key={tab.id}
               tab={tab}
-              method={drafts[tab.id]?.method ?? "GET"}
+              method={tabMethodLabel(tab, drafts[tab.id]?.method)}
               isActive={tab.id === activeTabId}
               onSelect={() => dispatch(setActiveTab(tab.id))}
               onClose={(e) => handleClose(tab.id, e)}
@@ -41,20 +108,18 @@ export function TabBar() {
               }}
             />
           ))}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-none text-muted-foreground hover:text-foreground"
+            title="New request (Ctrl+N)"
+            onClick={handleNewTab}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 shrink-0 rounded-none"
-        title="New tab (Ctrl+N)"
-        onClick={() =>
-          dispatch(openRequestTab({ request: createEmptyRequest(), forceNew: true }))
-        }
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }
@@ -97,7 +162,14 @@ function RequestTab({
     input.select();
   }, [editing]);
 
+  const isSpecialTab =
+    tab.kind === "runner" || tab.kind === "collection" || tab.kind === "git";
+
   const commitRename = () => {
+    if (isSpecialTab) {
+      setEditing(false);
+      return;
+    }
     const trimmed = draftTitle.trim() || "Untitled Request";
     dispatch(updateDraft({ tabId: tab.id, changes: { name: trimmed } }));
     dispatch(
@@ -115,6 +187,7 @@ function RequestTab({
   return (
     <div
       role="tab"
+      data-tab-id={tab.id}
       aria-selected={isActive}
       className={cn(
         "group relative flex shrink-0 cursor-pointer items-center gap-1.5 border-r px-2 text-xs transition-colors",
@@ -171,8 +244,13 @@ function RequestTab({
       ) : (
         <span
           className="min-w-0 flex-1 truncate leading-none"
-          title={`${tab.title} — double-click to rename`}
+          title={
+            isSpecialTab
+              ? tab.title
+              : `${tab.title} — double-click to rename`
+          }
           onDoubleClick={(e) => {
+            if (isSpecialTab) return;
             e.stopPropagation();
             setDraftTitle(tab.title);
             setEditing(true);

@@ -1,0 +1,18 @@
+{
+    "id": "env_local01",
+    "name": "local",
+    "seq": 0,
+    "variables": [
+        {
+            "enabled": true,
+            "key": "baseUrl",
+            "value": "http://localhost:3000"
+        },
+        {
+            "enabled": true,
+            "key": "token",
+            "secret": true,
+            "value": ""
+        }
+    ]
+}

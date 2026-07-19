@@ -11,7 +11,7 @@ export interface ParsedUseCall {
 }
 
 function toExpressions(
-  args: (t.Expression | t.SpreadElement)[],
+  args: (t.Expression | t.SpreadElement | t.ArgumentPlaceholder)[],
 ): t.Expression[] {
   return args.filter((arg): arg is t.Expression => t.isExpression(arg));
 }
@@ -28,7 +28,7 @@ function toExpressions(
  */
 export function parseUseCall(
   parent: string,
-  args: (t.Expression | t.SpreadElement)[],
+  args: (t.Expression | t.SpreadElement | t.ArgumentPlaceholder)[],
 ): ParsedUseCall | null {
   const expressions = toExpressions(args);
   if (expressions.length === 0) return null;

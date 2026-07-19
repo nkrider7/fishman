@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   FolderSearch,
+  GitFork,
   Loader2,
   ScanSearch,
 } from "lucide-react";
@@ -10,18 +11,24 @@ import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
   closeScanner,
   deselectAllEndpoints,
+  formatGitHubRepoLabel,
   importScanResult,
   pickProjectFolder,
   runBackendScan,
   selectAllEndpoints,
   setBaseUrl,
   setCollectionName,
+  setGitHubRef,
+  setGitHubToken,
+  setGitHubUrl,
+  setScannerSource,
   toggleEndpointSelection,
 } from "@/store/slices/scannerSlice";
 import {
   collapseAllTreeFolders,
   fetchCollections,
 } from "@/store/slices/collectionsSlice";
+import { parseGitHubRepoUrl } from "@/scanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,7 +48,11 @@ export function ScannerDialog() {
   const {
     open,
     step,
+    source,
     projectPath,
+    githubUrl,
+    githubRef,
+    githubToken,
     collectionName,
     baseUrl,
     progress,
@@ -52,6 +63,20 @@ export function ScannerDialog() {
 
   const selectedCount = selectedEndpointIds.length;
   const totalCount = result?.endpoints.length ?? 0;
+
+  const githubParsed = useMemo(() => {
+    try {
+      if (!githubUrl.trim()) return null;
+      return parseGitHubRepoUrl(githubUrl);
+    } catch {
+      return null;
+    }
+  }, [githubUrl]);
+
+  const canScan =
+    source === "local"
+      ? Boolean(projectPath)
+      : Boolean(githubParsed);
 
   const groupedEndpoints = useMemo(() => {
     if (!result) return [];
@@ -70,8 +95,17 @@ export function ScannerDialog() {
   };
 
   const handleScan = () => {
-    if (!projectPath) return;
-    dispatch(runBackendScan({ projectPath, baseUrl }));
+    if (!canScan) return;
+    dispatch(
+      runBackendScan({
+        source,
+        projectPath,
+        githubUrl,
+        githubRef,
+        githubToken,
+        baseUrl,
+      }),
+    );
   };
 
   const handleImport = async () => {
@@ -95,7 +129,7 @@ export function ScannerDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
+      <DialogContent className="flex max-h-[min(85vh,820px)] w-full max-w-2xl flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <ScanSearch className="h-5 w-5" />
@@ -112,25 +146,98 @@ export function ScannerDialog() {
 
         {step === "select" && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select a backend project folder. The scanner will detect the language,
-              framework, and API routes automatically.
-            </p>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project folder</label>
-              <div className="flex gap-2">
-                <Input
-                  readOnly
-                  placeholder="No folder selected"
-                  value={projectPath ?? ""}
-                  className="font-mono text-xs"
-                />
-                <Button variant="outline" onClick={handlePickFolder}>
-                  <FolderSearch className="h-4 w-4" />
-                  Browse
-                </Button>
-              </div>
+            <div className="flex gap-1 rounded-md border bg-muted/40 p-1">
+              <Button
+                type="button"
+                variant={source === "local" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1"
+                onClick={() => dispatch(setScannerSource("local"))}
+              >
+                <FolderSearch className="h-4 w-4" />
+                Local folder
+              </Button>
+              <Button
+                type="button"
+                variant={source === "github" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1"
+                onClick={() => dispatch(setScannerSource("github"))}
+              >
+                <GitFork className="h-4 w-4" />
+                GitHub URL
+              </Button>
             </div>
+
+            <p className="text-sm text-muted-foreground">
+              {source === "local"
+                ? "Select a backend project folder. Fishman detects Node.js, Python, or Java frameworks and API routes."
+                : "Paste a GitHub repo URL. Fishman fetches source files remotely — no clone required — then runs the same scanners."}
+            </p>
+
+            {source === "local" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Project folder</label>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    placeholder="No folder selected"
+                    value={projectPath ?? ""}
+                    className="font-mono text-xs"
+                  />
+                  <Button variant="outline" onClick={handlePickFolder}>
+                    <FolderSearch className="h-4 w-4" />
+                    Browse
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">GitHub repository URL</label>
+                  <Input
+                    value={githubUrl}
+                    onChange={(e) => dispatch(setGitHubUrl(e.target.value))}
+                    placeholder="https://github.com/owner/repo.git"
+                    className="font-mono text-xs"
+                  />
+                  {githubParsed && (
+                    <p className="text-xs text-muted-foreground">
+                      Resolved:{" "}
+                      <span className="font-mono">
+                        {formatGitHubRepoLabel({
+                          ...githubParsed,
+                          ref: githubRef.trim() || githubParsed.ref,
+                        })}
+                      </span>
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Branch (optional)</label>
+                    <Input
+                      value={githubRef}
+                      onChange={(e) => dispatch(setGitHubRef(e.target.value))}
+                      placeholder="default branch"
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Token (optional)</label>
+                    <Input
+                      type="password"
+                      value={githubToken}
+                      onChange={(e) => dispatch(setGitHubToken(e.target.value))}
+                      placeholder="ghp_… for private repos"
+                      className="font-mono text-xs"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Collection name</label>
               <Input
@@ -154,12 +261,13 @@ export function ScannerDialog() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <div className="text-center">
               <p className="font-medium">{progress?.message ?? "Scanning..."}</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {progress?.percent ?? 0}% complete
-                {progress?.routesFound != null && ` · ${progress.routesFound} routes found`}
+                {progress?.routesFound != null &&
+                  ` · ${progress.routesFound} routes found`}
               </p>
             </div>
-            <div className="h-2 w-full max-w-xs rounded-full bg-muted overflow-hidden">
+            <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full bg-primary transition-all duration-300"
                 style={{ width: `${progress?.percent ?? 0}%` }}
@@ -270,7 +378,7 @@ export function ScannerDialog() {
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleScan} disabled={!projectPath}>
+              <Button onClick={handleScan} disabled={!canScan}>
                 Scan project
               </Button>
             </>
@@ -280,10 +388,7 @@ export function ScannerDialog() {
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleImport}
-                disabled={selectedCount === 0}
-              >
+              <Button onClick={handleImport} disabled={selectedCount === 0}>
                 Import {selectedCount} route{selectedCount !== 1 ? "s" : ""}
               </Button>
             </>

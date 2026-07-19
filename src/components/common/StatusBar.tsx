@@ -1,32 +1,79 @@
+import { useEffect, useState } from "react";
 import {
   Bell,
   Cookie,
   Key,
+  Moon,
   Search,
   Settings,
+  Sun,
+  Terminal,
   Wrench,
 } from "lucide-react";
-import { AppIcon } from "@/components/common/AppIcon";
 import { EnvironmentSelector } from "@/components/environments/EnvironmentSelector";
-import { useAppDispatch } from "@/hooks/redux";
+import { StatusBarGit } from "@/components/common/StatusBarGit";
+import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { toggleDevTools } from "@/tauri/devtools";
-import { setSidebarView } from "@/store/slices/uiSlice";
-import { setSidebarCollapsed } from "@/store/slices/settingsSlice";
+import {
+  setSidebarView,
+  toggleScriptConsole,
+  setCookiesManagerOpen,
+} from "@/store/slices/uiSlice";
+import {
+  persistSettingsPatch,
+  setSidebarCollapsed,
+} from "@/store/slices/settingsSlice";
+import { getScriptErrorFromPipeline } from "@/script-engine/utils/script-errors";
 import { cn } from "@/utils/cn";
 import packageJson from "../../../package.json";
 
+function useResolvedDarkMode(theme: "light" | "dark" | "system"): boolean {
+  const [systemDark, setSystemDark] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+      : true,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    setSystemDark(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return systemDark;
+}
+
 export function StatusBar() {
   const dispatch = useAppDispatch();
+  const theme = useAppSelector((s) => s.settings.theme);
+  const isDark = useResolvedDarkMode(theme);
+  const scriptConsoleVisible = useAppSelector((s) => s.ui.scriptConsoleVisible);
+  const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
+  const scriptError = useAppSelector((s) =>
+    activeTabId
+      ? getScriptErrorFromPipeline(
+          s.scriptExecution.byTab[activeTabId]?.pipeline,
+        )
+      : null,
+  );
 
   const openSettings = () => {
     dispatch(setSidebarCollapsed(false));
     dispatch(setSidebarView("settings"));
   };
 
+  const toggleTheme = () => {
+    void dispatch(persistSettingsPatch({ theme: isDark ? "light" : "dark" }));
+  };
+
   return (
-    <footer className="flex h-7 shrink-0 select-none items-center justify-between border-t border-border/60 bg-[#111111] px-2 text-xs text-muted-foreground">
+    <footer className="flex h-5 shrink-0 select-none items-center justify-between border-t border-border/60 bg-muted/40 px-1.5 text-[10px] leading-none text-muted-foreground">
       {/* Left cluster */}
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-0.5">
         <StatusBarItem
           icon={Settings}
           title="Settings"
@@ -35,21 +82,36 @@ export function StatusBar() {
         <StatusBarItem icon={Key} title="Auth" disabled />
         <EnvironmentSelector />
         <StatusBarItem icon={Bell} title="Notifications" disabled />
-        <div className="mx-1 hidden h-3 w-px bg-border/60 sm:block" />
-        <button
-          type="button"
-          className="hidden items-center gap-1.5 px-1.5 transition-colors hover:text-foreground sm:flex"
-          title="Fishman API Client"
-        >
-          <AppIcon size="xs" />
-          <span>Fishman</span>
-        </button>
+        <StatusBarGit />
       </div>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-0.5">
+        <StatusBarItem
+          icon={isDark ? Sun : Moon}
+          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          label={isDark ? "Light" : "Dark"}
+          onClick={toggleTheme}
+        />
         <StatusBarItem icon={Search} label="Search" disabled />
-        <StatusBarItem icon={Cookie} label="Cookies" disabled />
+        <StatusBarItem
+          icon={Cookie}
+          label="Cookies"
+          title="Manage cookies"
+          onClick={() => dispatch(setCookiesManagerOpen(true))}
+        />
+        <StatusBarItem
+          icon={Terminal}
+          label="Console"
+          title={
+            scriptError
+              ? `Script error: ${scriptError.error.message}`
+              : "Toggle tools panel (Console, Network, Performance, Terminal)"
+          }
+          active={scriptConsoleVisible}
+          error={!!scriptError}
+          onClick={() => dispatch(toggleScriptConsole())}
+        />
         <StatusBarItem
           icon={Wrench}
           label="Dev Tools"
@@ -58,7 +120,7 @@ export function StatusBar() {
             void toggleDevTools();
           }}
         />
-        <span className="ml-1 px-1.5 text-[10px] text-muted-foreground/70">
+        <span className="ml-0.5 px-1 text-[9px] text-muted-foreground/70">
           v{packageJson.version}
         </span>
       </div>
@@ -72,12 +134,16 @@ function StatusBarItem({
   title,
   onClick,
   disabled,
+  active,
+  error,
 }: {
   icon: typeof Settings;
   label?: string;
   title?: string;
   onClick?: () => void;
   disabled?: boolean;
+  active?: boolean;
+  error?: boolean;
 }) {
   return (
     <button
@@ -86,14 +152,21 @@ function StatusBarItem({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors",
+        "relative flex h-4 items-center gap-0.5 rounded px-1 transition-colors",
         disabled
           ? "cursor-default opacity-40"
-          : "hover:bg-white/10 hover:text-foreground",
+          : active
+            ? "bg-accent text-foreground"
+            : error
+              ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+              : "hover:bg-accent hover:text-foreground",
       )}
     >
-      <Icon className="h-3 w-3" />
+      <Icon className="h-2.5 w-2.5" />
       {label && <span className="hidden md:inline">{label}</span>}
+      {error && (
+        <span className="absolute -right-0.5 -top-px h-1 w-1 rounded-full bg-destructive" />
+      )}
     </button>
   );
 }

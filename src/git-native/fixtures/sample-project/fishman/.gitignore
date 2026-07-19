@@ -1,0 +1,12 @@
+# Local-only / generated
+history/
+logs/
+cache/
+temp/
+.fishman/
+
+# Secrets — never commit
+*.secret.json
+.env.secret
+.env.local
+*.local.json

@@ -54,7 +54,7 @@ export function detectAuthFromModule(mod: ParsedPythonModule): AuthPattern[] {
 export function detectEndpointAuth(
   fnSource: string,
   decoratorSource: string,
-  moduleAuth: AuthPattern[],
+  _moduleAuth: AuthPattern[],
 ): ApiAuthentication | undefined {
   const combined = `${decoratorSource}\n${fnSource}`;
 

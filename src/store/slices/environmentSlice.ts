@@ -35,9 +35,11 @@ const initialState: EnvironmentState = {
 
 export const fetchEnvironments = createAsyncThunk(
   "environments/fetch",
-  async () => {
+  async (_arg, { getState }) => {
+    const state = getState() as RootState;
+    const workspaceId = state.workspaces.activeWorkspaceId;
     const [environments, settings] = await Promise.all([
-      envService.listAllEnvironments(),
+      envService.listAllEnvironments(workspaceId),
       getSettings(),
     ]);
     return { environments, settings };
@@ -46,20 +48,27 @@ export const fetchEnvironments = createAsyncThunk(
 
 export const createEnvironment = createAsyncThunk(
   "environments/create",
-  async ({
-    name,
-    variables,
-    collectionId,
-  }: {
-    name: string;
-    variables?: KeyValue[];
-    collectionId?: string | null;
-  }) => {
-    return envService.createEnvironment({
+  async (
+    {
       name,
-      variables: variables ?? [],
-      collectionId: collectionId ?? null,
-    });
+      variables,
+      collectionId,
+    }: {
+      name: string;
+      variables?: KeyValue[];
+      collectionId?: string | null;
+    },
+    { getState },
+  ) => {
+    const state = getState() as RootState;
+    return envService.createEnvironment(
+      {
+        name,
+        variables: variables ?? [],
+        collectionId: collectionId ?? null,
+      },
+      state.workspaces.activeWorkspaceId,
+    );
   },
 );
 

@@ -1,13 +1,6 @@
-import type { AuthType } from "@/types/request";
+import type { AuthType, HttpMethod } from "@/types/request";
 
-export type HttpMethod =
-  | "GET"
-  | "POST"
-  | "PUT"
-  | "PATCH"
-  | "DELETE"
-  | "OPTIONS"
-  | "HEAD";
+export type { HttpMethod };
 
 export interface ApiParameter {
   name: string;

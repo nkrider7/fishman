@@ -15,7 +15,8 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out",
+      // No backdrop-blur — it softens foreground text in Tauri/WebKit
+      "fixed inset-0 z-50 bg-black/80",
       className,
     )}
     {...props}
@@ -29,20 +30,27 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
+    {/*
+      Flex centering avoids translate(-50%,-50%) half-pixel blur.
+      Wrapper is pointer-events-none so clicks outside content hit the overlay.
+    */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          "pointer-events-auto relative z-50 grid w-full max-w-md gap-4 border border-border bg-background p-6 text-foreground shadow-2xl outline-none sm:rounded-lg",
+          "max-h-[min(90vh,900px)]",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </div>
   </DialogPortal>
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
@@ -86,7 +94,10 @@ const DialogFooter = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)}
+    className={cn(
+      "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 sm:gap-0",
+      className,
+    )}
     {...props}
   />
 );

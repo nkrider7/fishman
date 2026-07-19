@@ -42,9 +42,15 @@ const requestSlice = createSlice({
     removeDraft: (state, action: PayloadAction<string>) => {
       delete state.drafts[action.payload];
     },
+    replaceDrafts: (
+      state,
+      action: PayloadAction<Record<string, RequestDraft>>,
+    ) => {
+      state.drafts = action.payload;
+    },
   },
 });
 
-export const { initDraft, updateDraft, setDraft, removeDraft } =
+export const { initDraft, updateDraft, setDraft, removeDraft, replaceDrafts } =
   requestSlice.actions;
 export default requestSlice.reducer;

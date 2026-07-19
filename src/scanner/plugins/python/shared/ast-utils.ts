@@ -137,12 +137,15 @@ export function djangoPathToOpenApi(path: string): string {
 
 export const HTTP_METHODS = new Set([
   "get",
+  "query",
   "post",
   "put",
   "patch",
   "delete",
   "options",
   "head",
+  "trace",
+  "connect",
 ]);
 
 export function isHttpMethod(name: string): boolean {

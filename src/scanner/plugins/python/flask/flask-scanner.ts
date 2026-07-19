@@ -6,7 +6,6 @@ import { parsePythonSource } from "../../../parsers/ast/python-parser";
 import {
   extractRouterMounts,
   extractIncludeEdges,
-  composePrefix,
   extractFlaskRouteDecorators,
   extractFlaskAddUrlRules,
 } from "../shared/route-graph";

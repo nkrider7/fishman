@@ -379,7 +379,7 @@ function composeLocalMountPrefix(
 
   while (current && graph.has(current) && !visited.has(current)) {
     visited.add(current);
-    const edge = graph.get(current)!;
+    const edge: LocalMountEdge = graph.get(current)!;
     if (edge.mountPath) parts.unshift(edge.mountPath);
     current = edge.parent;
   }

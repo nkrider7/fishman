@@ -30,11 +30,22 @@ export interface PythonProjectManifest {
   environment?: Record<string, string>;
 }
 
+export interface JavaProjectManifest {
+  dependencies: Record<string, string>;
+  buildSystem?: "maven" | "gradle" | "unknown";
+  springBootVersion?: string;
+  contextPath?: string;
+  servletPath?: string;
+  entryClasses?: string[];
+  sourceRoots?: string[];
+}
+
 export interface DetectionContext {
   projectPath: string;
   fs: FileSystemAdapter;
   packageJson?: PackageJson;
   pythonProject?: PythonProjectManifest;
+  javaProject?: JavaProjectManifest;
 }
 
 export interface ScanContext extends DetectionContext {

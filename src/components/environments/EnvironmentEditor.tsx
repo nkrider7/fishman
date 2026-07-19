@@ -65,12 +65,20 @@ export function EnvironmentEditor({
       return;
     }
     setName(environment.name);
+    setRenaming(false);
+    dispatch(setEnvironmentDirty(false));
+  }, [environment?.id, environment?.name, dispatch]);
+
+  // Keep editor in sync when scripts (or other surfaces) update live/saved vars.
+  useEffect(() => {
+    if (!environment) {
+      setVariables([]);
+      return;
+    }
     setVariables(
       liveVariablesByEnvId[environment.id] ?? environment.variables,
     );
-    setRenaming(false);
-    dispatch(setEnvironmentDirty(false));
-  }, [environment?.id, dispatch]);
+  }, [environment?.id, environment?.variables, liveVariablesByEnvId]);
 
   const isDirty = useMemo(() => {
     if (!environment) return false;

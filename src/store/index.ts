@@ -8,6 +8,14 @@ import settingsReducer from "./slices/settingsSlice";
 import uiReducer from "./slices/uiSlice";
 import scannerReducer from "./slices/scannerSlice";
 import environmentReducer from "./slices/environmentSlice";
+import scriptExecutionReducer from "./slices/scriptExecutionSlice";
+import cookiesReducer from "./slices/cookiesSlice";
+import workspaceReducer from "./slices/workspaceSlice";
+import runnerReducer from "./slices/runnerSlice";
+import collectionSettingsReducer from "./slices/collectionSettingsSlice";
+import networkLogReducer from "./slices/networkLogSlice";
+import gitReducer from "./slices/gitSlice";
+import apiTestingReducer from "./slices/apiTestingSlice";
 import { sendRequestThunk } from "./thunks/sendRequest";
 
 export const store = configureStore({
@@ -21,6 +29,14 @@ export const store = configureStore({
     ui: uiReducer,
     scanner: scannerReducer,
     environments: environmentReducer,
+    scriptExecution: scriptExecutionReducer,
+    cookies: cookiesReducer,
+    workspaces: workspaceReducer,
+    runner: runnerReducer,
+    collectionSettings: collectionSettingsReducer,
+    networkLog: networkLogReducer,
+    git: gitReducer,
+    apiTesting: apiTestingReducer,
   },
 });
 

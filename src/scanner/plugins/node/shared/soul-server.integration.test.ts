@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, basename, relative } from "node:path";
-import type { FileSystemAdapter, FsDirEntry } from "../../core/types";
+import type { FileSystemAdapter, FsDirEntry } from "../../../core/types";
 import { scanWithRoutePatterns } from "./route-scanner";
 
 const SOUL_SERVER_PATH = join(

@@ -36,10 +36,10 @@ export const nodeLanguagePlugin: LanguagePlugin = {
 };
 
 // Future language stubs — register when implemented
+// Java is implemented via `language/java-plugin.ts`
 export const futureLanguagePlugins = {
   go: { id: "go", markers: ["go.mod"] },
   rust: { id: "rust", markers: ["Cargo.toml"] },
-  java: { id: "java", markers: ["pom.xml", "build.gradle"] },
   php: { id: "php", markers: ["composer.json"] },
   csharp: { id: "csharp", markers: [".csproj"] },
   ruby: { id: "ruby", markers: ["Gemfile"] },

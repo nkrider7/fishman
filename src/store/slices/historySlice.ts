@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { HistoryEntry } from "@/types/history";
 import * as db from "@/services/dbService";
+import type { RootState } from "../index";
 
 interface HistoryState {
   entries: HistoryEntry[];
@@ -12,25 +13,41 @@ const initialState: HistoryState = {
   loading: false,
 };
 
-export const fetchHistory = createAsyncThunk("history/fetch", async () => {
-  return db.getHistory();
-});
-
-export const addHistory = createAsyncThunk(
-  "history/add",
-  async (entry: Omit<HistoryEntry, "id" | "created_at">) => {
-    return db.addHistoryEntry(entry);
+export const fetchHistory = createAsyncThunk(
+  "history/fetch",
+  async (_arg, { getState }) => {
+    const state = getState() as RootState;
+    return db.getHistory(state.workspaces.activeWorkspaceId);
   },
 );
 
-export const clearAllHistory = createAsyncThunk("history/clear", async () => {
-  await db.clearHistory();
-});
+export const addHistory = createAsyncThunk(
+  "history/add",
+  async (
+    entry: Omit<HistoryEntry, "id" | "created_at">,
+    { getState },
+  ) => {
+    const state = getState() as RootState;
+    return db.addHistoryEntry(entry, state.workspaces.activeWorkspaceId);
+  },
+);
+
+export const clearAllHistory = createAsyncThunk(
+  "history/clear",
+  async (_arg, { getState }) => {
+    const state = getState() as RootState;
+    await db.clearHistory(state.workspaces.activeWorkspaceId);
+  },
+);
 
 const historySlice = createSlice({
   name: "history",
   initialState,
-  reducers: {},
+  reducers: {
+    replaceHistory(state, action: { payload: HistoryEntry[] }) {
+      state.entries = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchHistory.pending, (state) => {
@@ -49,4 +66,5 @@ const historySlice = createSlice({
   },
 });
 
+export const { replaceHistory } = historySlice.actions;
 export default historySlice.reducer;

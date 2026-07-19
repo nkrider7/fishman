@@ -2,10 +2,9 @@ import Database from "@tauri-apps/plugin-sql";
 import type { Environment, EnvironmentDraft } from "@/types/environment";
 import type { KeyValue } from "@/types/request";
 import { generateId } from "@/utils/id";
+import { DEFAULT_WORKSPACE_ID } from "@/workspaces/constants";
 
 let db: Database | null = null;
-
-const DEFAULT_WORKSPACE_ID = "default-workspace";
 
 async function getDb(): Promise<Database> {
   if (!db) {
@@ -38,31 +37,36 @@ function rowToEnvironment(row: EnvironmentRow): Environment {
   };
 }
 
-export async function listAllEnvironments(): Promise<Environment[]> {
+export async function listAllEnvironments(
+  workspaceId: string = DEFAULT_WORKSPACE_ID,
+): Promise<Environment[]> {
   const database = await getDb();
   const rows = await database.select<EnvironmentRow[]>(
     "SELECT * FROM environments WHERE workspace_id = ? ORDER BY sort_order ASC, created_at ASC",
-    [DEFAULT_WORKSPACE_ID],
+    [workspaceId],
   );
   return rows.map(rowToEnvironment);
 }
 
-export async function listGlobalEnvironments(): Promise<Environment[]> {
+export async function listGlobalEnvironments(
+  workspaceId: string = DEFAULT_WORKSPACE_ID,
+): Promise<Environment[]> {
   const database = await getDb();
   const rows = await database.select<EnvironmentRow[]>(
     "SELECT * FROM environments WHERE workspace_id = ? AND collection_id IS NULL ORDER BY sort_order ASC, created_at ASC",
-    [DEFAULT_WORKSPACE_ID],
+    [workspaceId],
   );
   return rows.map(rowToEnvironment);
 }
 
 export async function listCollectionEnvironments(
   collectionId: string,
+  workspaceId: string = DEFAULT_WORKSPACE_ID,
 ): Promise<Environment[]> {
   const database = await getDb();
   const rows = await database.select<EnvironmentRow[]>(
     "SELECT * FROM environments WHERE workspace_id = ? AND collection_id = ? ORDER BY sort_order ASC, created_at ASC",
-    [DEFAULT_WORKSPACE_ID, collectionId],
+    [workspaceId, collectionId],
   );
   return rows.map(rowToEnvironment);
 }
@@ -80,6 +84,7 @@ export async function getEnvironmentById(
 
 export async function createEnvironment(
   draft: EnvironmentDraft,
+  workspaceId: string = DEFAULT_WORKSPACE_ID,
 ): Promise<Environment> {
   const database = await getDb();
   const now = Date.now();
@@ -90,8 +95,8 @@ export async function createEnvironment(
       ? "SELECT id FROM environments WHERE workspace_id = ? AND collection_id IS NULL AND name = ?"
       : "SELECT id FROM environments WHERE workspace_id = ? AND collection_id = ? AND name = ?",
     collectionId === null
-      ? [DEFAULT_WORKSPACE_ID, draft.name]
-      : [DEFAULT_WORKSPACE_ID, collectionId, draft.name],
+      ? [workspaceId, draft.name]
+      : [workspaceId, collectionId, draft.name],
   );
   if (existing.length > 0) {
     throw new Error(`Environment "${draft.name}" already exists in this scope`);
@@ -99,7 +104,7 @@ export async function createEnvironment(
 
   const env: Environment = {
     id: generateId(),
-    workspace_id: DEFAULT_WORKSPACE_ID,
+    workspace_id: workspaceId,
     collection_id: collectionId,
     name: draft.name,
     variables: draft.variables,
@@ -136,6 +141,7 @@ export async function updateEnvironment(
   const name = changes.name ?? current.name;
   const variables = changes.variables ?? current.variables;
   const now = Date.now();
+  const workspaceId = current.workspace_id;
 
   if (changes.name && changes.name !== current.name) {
     const duplicate = await database.select<{ id: string }[]>(
@@ -143,8 +149,8 @@ export async function updateEnvironment(
         ? "SELECT id FROM environments WHERE workspace_id = ? AND collection_id IS NULL AND name = ? AND id != ?"
         : "SELECT id FROM environments WHERE workspace_id = ? AND collection_id = ? AND name = ? AND id != ?",
       current.collection_id === null
-        ? [DEFAULT_WORKSPACE_ID, name, id]
-        : [DEFAULT_WORKSPACE_ID, current.collection_id, name, id],
+        ? [workspaceId, name, id]
+        : [workspaceId, current.collection_id, name, id],
     );
     if (duplicate.length > 0) {
       throw new Error(`Environment "${name}" already exists in this scope`);
@@ -171,38 +177,46 @@ export async function duplicateEnvironment(id: string): Promise<Environment> {
   let copyName = `${current.name} Copy`;
   let suffix = 2;
   const database = await getDb();
+  const workspaceId = current.workspace_id;
   while (true) {
     const existing = await database.select<{ id: string }[]>(
       current.collection_id === null
         ? "SELECT id FROM environments WHERE workspace_id = ? AND collection_id IS NULL AND name = ?"
         : "SELECT id FROM environments WHERE workspace_id = ? AND collection_id = ? AND name = ?",
       current.collection_id === null
-        ? [DEFAULT_WORKSPACE_ID, copyName]
-        : [DEFAULT_WORKSPACE_ID, current.collection_id, copyName],
+        ? [workspaceId, copyName]
+        : [workspaceId, current.collection_id, copyName],
     );
     if (existing.length === 0) break;
     copyName = `${current.name} Copy ${suffix}`;
     suffix++;
   }
 
-  return createEnvironment({
-    name: copyName,
-    variables: current.variables.map((v) => ({ ...v, id: generateId() })),
-    collectionId: current.collection_id,
-  });
+  return createEnvironment(
+    {
+      name: copyName,
+      variables: current.variables.map((v) => ({ ...v, id: generateId() })),
+      collectionId: current.collection_id,
+    },
+    workspaceId,
+  );
 }
 
 export async function createCollectionEnvironmentFromVariables(
   collectionId: string,
   variables: KeyValue[],
   name = "Imported Variables",
+  workspaceId: string = DEFAULT_WORKSPACE_ID,
 ): Promise<Environment | null> {
   if (variables.length === 0) return null;
-  return createEnvironment({
-    name,
-    variables,
-    collectionId,
-  });
+  return createEnvironment(
+    {
+      name,
+      variables,
+      collectionId,
+    },
+    workspaceId,
+  );
 }
 
 export async function deleteEnvironmentsForCollection(

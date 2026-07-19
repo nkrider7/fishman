@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { openRequestTab } from "@/store/thunks/openRequestTab";
 import { clearAllHistory } from "@/store/slices/historySlice";
@@ -9,9 +9,17 @@ import {
 } from "@/types/history";
 import { getHistoryGroup, formatDate, formatDuration } from "@/utils/dateGroups";
 import { getMethodClass } from "@/utils/requestBuilder";
+import { HTTP_METHODS } from "@/types/request";
 import { cn } from "@/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { RequestDraft } from "@/types/request";
 import type { ApiResponse } from "@/types/response";
 import { setResponse } from "@/store/slices/responseSlice";
@@ -19,6 +27,14 @@ import { setResponse } from "@/store/slices/responseSlice";
 export function HistoryList() {
   const dispatch = useAppDispatch();
   const entries = useAppSelector((s) => s.history.entries);
+  const [methodFilter, setMethodFilter] = useState<string>("ALL");
+
+  const filtered = useMemo(() => {
+    if (methodFilter === "ALL") return entries;
+    return entries.filter(
+      (e) => e.method.toUpperCase() === methodFilter.toUpperCase(),
+    );
+  }, [entries, methodFilter]);
 
   const grouped = useMemo(() => {
     const groups: Record<HistoryGroup, HistoryEntry[]> = {
@@ -27,11 +43,11 @@ export function HistoryList() {
       thisWeek: [],
       older: [],
     };
-    for (const entry of entries) {
+    for (const entry of filtered) {
       groups[getHistoryGroup(entry.created_at)].push(entry);
     }
     return groups;
-  }, [entries]);
+  }, [filtered]);
 
   const handleOpen = (entry: HistoryEntry) => {
     const request = JSON.parse(entry.request_snapshot_json) as RequestDraft;
@@ -45,15 +61,46 @@ export function HistoryList() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b p-2">
+      <div className="flex items-center justify-between gap-2 border-b p-2">
         <span className="text-sm font-medium">History</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => dispatch(clearAllHistory())}
-        >
-          Clear
-        </Button>
+        <div className="flex items-center gap-1">
+          <Select value={methodFilter} onValueChange={setMethodFilter}>
+            <SelectTrigger
+              className="h-7 w-[7.5rem] border-border/60 bg-background px-2 text-[11px] text-foreground shadow-none focus:ring-1 focus:ring-ring"
+              title="Filter by HTTP method"
+              aria-label="Filter history by method"
+            >
+              <SelectValue placeholder="All methods" />
+            </SelectTrigger>
+            <SelectContent
+              align="end"
+              className="min-w-[7.5rem] border-border bg-popover text-popover-foreground"
+            >
+              <SelectItem
+                value="ALL"
+                className="py-2 text-[11px] text-popover-foreground"
+              >
+                All methods
+              </SelectItem>
+              {HTTP_METHODS.map((m) => (
+                <SelectItem
+                  key={m}
+                  value={m}
+                  className="py-2 text-[11px] text-popover-foreground"
+                >
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => dispatch(clearAllHistory())}
+          >
+            Clear
+          </Button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto pb-24 pt-1 pr-1 pl-1">
         {(Object.keys(grouped) as HistoryGroup[]).map((group) => {
@@ -105,9 +152,11 @@ export function HistoryList() {
             </div>
           );
         })}
-        {entries.length === 0 && (
+        {filtered.length === 0 && (
           <p className="px-2 py-4 text-sm text-muted-foreground">
-            No history yet. Send a request to get started.
+            {entries.length === 0
+              ? "No history yet. Send a request to get started."
+              : `No ${methodFilter} requests in history.`}
           </p>
         )}
       </div>

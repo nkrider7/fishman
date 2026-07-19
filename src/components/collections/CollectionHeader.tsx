@@ -2,14 +2,17 @@ import { useState } from "react";
 import {
   Box,
   Download,
+  FolderGit2,
   FolderOpen,
+  GitBranch,
   Import,
   MoreVertical,
   Plus,
   ScanSearch,
   Search,
+  X,
 } from "lucide-react";
-import { useAppDispatch } from "@/hooks/redux";
+import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
   createCollection,
   openImportDialog,
@@ -25,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -34,6 +38,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  closeFilesystemProject,
+  openGitUiTab,
+  openProjectAndGitUi,
+  refreshFilesystemCollections,
+} from "@/store/thunks/gitThunks";
 
 interface CollectionHeaderProps {
   searchQuery: string;
@@ -51,6 +61,10 @@ export function CollectionHeader({
   selectedCollectionId = null,
 }: CollectionHeaderProps) {
   const dispatch = useAppDispatch();
+  const sourceMode = useAppSelector((s) => s.collections.sourceMode);
+  const fsProjectName = useAppSelector(
+    (s) => s.collections.filesystemProjectName,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [importOpen, setImportOpen] = useState(false);
@@ -59,6 +73,8 @@ export function CollectionHeader({
     content: string;
     filename?: string;
   } | null>(null);
+
+  const isFilesystem = sourceMode === "filesystem";
 
   const handleOpenImport = async () => {
     const result = await dispatch(openImportDialog()).unwrap();
@@ -79,11 +95,40 @@ export function CollectionHeader({
     <>
       <div className="flex flex-col border-b">
         <div className="flex items-center justify-between py-2 pl-0 pr-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Box className="h-4 w-4 text-muted-foreground" />
-            Collections
+          <div className="flex min-w-0 flex-col gap-0.5 pl-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Box className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">
+                {isFilesystem ? (fsProjectName ?? "Project") : "Collections"}
+              </span>
+            </div>
+            {isFilesystem ? (
+              <span className="truncate text-[10px] text-muted-foreground">
+                Git project · fishman/
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-0.5">
+            {isFilesystem ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title="Close git project (return to local)"
+                onClick={() => void dispatch(closeFilesystemProject())}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              title="Open Git UI"
+              onClick={() => void dispatch(openGitUiTab())}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -115,6 +160,24 @@ export function CollectionHeader({
                   <ScanSearch className="h-4 w-4" />
                   Scan backend project
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => void dispatch(openProjectAndGitUi())}
+                >
+                  <FolderGit2 className="h-4 w-4" />
+                  Open Git project…
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void dispatch(openGitUiTab())}>
+                  <GitBranch className="h-4 w-4" />
+                  Git UI
+                </DropdownMenuItem>
+                {isFilesystem ? (
+                  <DropdownMenuItem
+                    onClick={() => void dispatch(refreshFilesystemCollections())}
+                  >
+                    Refresh from disk
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -144,7 +207,7 @@ export function CollectionHeader({
         {showSearch && (
           <div className="pb-2 pl-2 pr-3">
             <Input
-              placeholder="Search collections..."
+              placeholder="Search… or method:QUERY"
               value={searchQuery}
               onChange={(e) => {
                 onSearchChange(e.target.value);

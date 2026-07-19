@@ -1,6 +1,6 @@
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
-  persistSettings,
+  persistSettingsPatch,
   setIgnoreSsl,
   setTheme,
   setTimeoutMs,
@@ -15,15 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AppSettings, Theme } from "@/types/settings";
+import type { Theme, WorkspaceLayout } from "@/types/settings";
+import { cn } from "@/utils/cn";
 
 export function SettingsPage() {
   const dispatch = useAppDispatch();
   const settings = useAppSelector((s) => s.settings);
 
-  const save = (changes: Partial<AppSettings>) => {
-    const next: AppSettings = { ...settings, ...changes };
-    dispatch(persistSettings(next));
+  const save = (changes: Parameters<typeof persistSettingsPatch>[0]) => {
+    dispatch(persistSettingsPatch(changes));
   };
 
   return (
@@ -48,6 +48,35 @@ export function SettingsPage() {
               <SelectItem value="system">System</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-4 text-sm font-semibold">Layout</h2>
+        <div className="space-y-2">
+          <Label>Request / Response</Label>
+          <p className="text-xs text-muted-foreground">
+            Choose how the request and response panels are arranged. You can
+            also switch from the title bar icons.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <LayoutOption
+              selected={settings.workspaceLayout === "vertical"}
+              title="Vertical"
+              description="Response below"
+              onClick={() => save({ workspaceLayout: "vertical" })}
+            >
+              <LayoutPreview orientation="vertical" />
+            </LayoutOption>
+            <LayoutOption
+              selected={settings.workspaceLayout === "horizontal"}
+              title="Horizontal"
+              description="Response beside"
+              onClick={() => save({ workspaceLayout: "horizontal" })}
+            >
+              <LayoutPreview orientation="horizontal" />
+            </LayoutOption>
+          </div>
         </div>
       </div>
 
@@ -82,6 +111,67 @@ export function SettingsPage() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function LayoutOption({
+  selected,
+  title,
+  description,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  title: string;
+  description: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "flex flex-col gap-2 rounded-md border p-3 text-left transition-colors",
+        "hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        selected
+          ? "border-primary bg-primary/5 ring-1 ring-primary/40"
+          : "border-border bg-background",
+      )}
+    >
+      {children}
+      <div>
+        <div className="text-xs font-medium">{title}</div>
+        <div className="text-[11px] text-muted-foreground">{description}</div>
+      </div>
+    </button>
+  );
+}
+
+function LayoutPreview({ orientation }: { orientation: WorkspaceLayout }) {
+  const isHorizontal = orientation === "horizontal";
+  return (
+    <div
+      className={cn(
+        "flex h-14 w-full overflow-hidden rounded border border-border/80 bg-muted/30 p-1",
+        isHorizontal ? "flex-row gap-1" : "flex-col gap-1",
+      )}
+      aria-hidden
+    >
+      <div
+        className={cn(
+          "rounded-sm bg-muted-foreground/25",
+          isHorizontal ? "h-full w-[55%]" : "h-[55%] w-full",
+        )}
+      />
+      <div
+        className={cn(
+          "rounded-sm bg-primary/35",
+          isHorizontal ? "h-full flex-1" : "h-auto flex-1 w-full",
+        )}
+      />
     </div>
   );
 }
