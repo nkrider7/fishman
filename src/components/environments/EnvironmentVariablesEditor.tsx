@@ -35,7 +35,7 @@ export function EnvironmentVariablesEditor({
 
   return (
     <div className="space-y-2">
-      <div className="sticky top-0 z-10 grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1.4fr)_36px] items-center gap-x-2 rounded-md bg-background/95 px-1 py-1.5 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1.4fr)_36px] items-center gap-x-2 rounded-md bg-background px-1 py-1.5">
         <span />
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Variable

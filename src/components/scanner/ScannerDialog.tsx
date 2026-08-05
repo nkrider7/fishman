@@ -44,6 +44,12 @@ import {
 } from "@/components/ui/dialog";
 
 export function ScannerDialog() {
+  const open = useAppSelector((state) => state.scanner.open);
+  if (!open) return null;
+  return <ScannerDialogOpen />;
+}
+
+function ScannerDialogOpen() {
   const dispatch = useAppDispatch();
   const {
     open,
@@ -109,8 +115,8 @@ export function ScannerDialog() {
   };
 
   const handleImport = async () => {
-    if (!result) return;
-    await dispatch(
+    if (!result || step === "importing") return;
+    const action = await dispatch(
       importScanResult({
         result,
         collectionName,
@@ -118,6 +124,8 @@ export function ScannerDialog() {
         selectedEndpointIds,
       }),
     );
+    // Skip when blocked by condition (duplicate click) or failed.
+    if (!importScanResult.fulfilled.match(action)) return;
     await dispatch(fetchCollections());
     dispatch(collapseAllTreeFolders());
     dispatch(closeScanner());
@@ -171,7 +179,7 @@ export function ScannerDialog() {
 
             <p className="text-sm text-muted-foreground">
               {source === "local"
-                ? "Select a backend project folder. Fishman detects Node.js, Python, or Java frameworks and API routes."
+                ? "Select a backend project folder. Fishman detects Node.js, Python, Java, Rust, or Go frameworks and API routes."
                 : "Paste a GitHub repo URL. Fishman fetches source files remotely — no clone required — then runs the same scanners."}
             </p>
 
@@ -388,7 +396,10 @@ export function ScannerDialog() {
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleImport} disabled={selectedCount === 0}>
+              <Button
+                onClick={handleImport}
+                disabled={selectedCount === 0 || step === "importing"}
+              >
                 Import {selectedCount} route{selectedCount !== 1 ? "s" : ""}
               </Button>
             </>

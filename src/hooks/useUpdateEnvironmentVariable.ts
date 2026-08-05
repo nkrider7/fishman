@@ -1,12 +1,15 @@
 import { useCallback, useMemo } from "react";
+import { useStore } from "react-redux";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { useVariableContext } from "@/hooks/useVariableContext";
 import {
+  createEnvironment,
   setActiveCollectionEnvironment,
   setActiveGlobalEnvironment,
   setLiveEnvironmentVariables,
 } from "@/store/slices/environmentSlice";
 import { getEffectiveVariables } from "@/store/selectors/environmentSelectors";
+import type { RootState } from "@/store";
 import type { Environment } from "@/types/environment";
 import { createKeyValue } from "@/types/request";
 
@@ -15,11 +18,11 @@ export interface VariableEditTarget {
   scope: "global" | "collection";
 }
 
+const DEFAULT_ENV_NAME = "Default";
+
 export function useUpdateEnvironmentVariable(collectionId?: string | null) {
   const dispatch = useAppDispatch();
-  const liveVariablesByEnvId = useAppSelector(
-    (s) => s.environments.liveVariablesByEnvId,
-  );
+  const store = useStore<RootState>();
   const globalEnvironments = useAppSelector(
     (s) => s.environments.globalEnvironments,
   );
@@ -88,10 +91,10 @@ export function useUpdateEnvironmentVariable(collectionId?: string | null) {
   );
 
   const ensureTargetActive = useCallback(
-    (target: VariableEditTarget) => {
+    async (target: VariableEditTarget) => {
       if (target.scope === "global") {
         if (activeGlobalEnvironmentId !== target.env.id) {
-          void dispatch(setActiveGlobalEnvironment(target.env.id));
+          await dispatch(setActiveGlobalEnvironment(target.env.id));
         }
         return;
       }
@@ -99,7 +102,7 @@ export function useUpdateEnvironmentVariable(collectionId?: string | null) {
       const rootId = rootCollectionId ?? target.env.collection_id;
       if (!rootId) return;
       if (activeCollectionEnvironmentIds[rootId] !== target.env.id) {
-        void dispatch(
+        await dispatch(
           setActiveCollectionEnvironment({
             collectionId: rootId,
             environmentId: target.env.id,
@@ -115,17 +118,53 @@ export function useUpdateEnvironmentVariable(collectionId?: string | null) {
     ],
   );
 
+  const createDefaultTarget =
+    useCallback(async (): Promise<VariableEditTarget | null> => {
+      const collectionIdForEnv = rootCollectionId ?? null;
+      const result = await dispatch(
+        createEnvironment({
+          name: DEFAULT_ENV_NAME,
+          variables: [],
+          collectionId: collectionIdForEnv,
+        }),
+      );
+
+      if (createEnvironment.fulfilled.match(result)) {
+        const env = result.payload;
+        return {
+          env,
+          scope: env.collection_id ? "collection" : "global",
+        };
+      }
+
+      // Name conflict or race — pick whatever exists now in the preferred scope.
+      const state = store.getState().environments;
+      if (collectionIdForEnv) {
+        const list = state.collectionEnvironments[collectionIdForEnv] ?? [];
+        const existing =
+          list.find((e) => e.name === DEFAULT_ENV_NAME) ?? list[0];
+        if (existing) return { env: existing, scope: "collection" };
+      }
+      const globalExisting =
+        state.globalEnvironments.find((e) => e.name === DEFAULT_ENV_NAME) ??
+        state.globalEnvironments[0];
+      if (globalExisting) return { env: globalExisting, scope: "global" };
+
+      return null;
+    }, [dispatch, rootCollectionId, store]);
+
   const updateVariable = useCallback(
-    (name: string, value: string): boolean => {
-      const target = getEditTarget(name);
+    async (name: string, value: string): Promise<boolean> => {
+      let target = getEditTarget(name);
+      if (!target) {
+        target = await createDefaultTarget();
+      }
       if (!target) return false;
 
-      ensureTargetActive(target);
+      await ensureTargetActive(target);
 
-      const variables = getEffectiveVariables(
-        target.env,
-        liveVariablesByEnvId,
-      );
+      const liveMap = store.getState().environments.liveVariablesByEnvId;
+      const variables = getEffectiveVariables(target.env, liveMap);
       const existingIndex = variables.findIndex((v) => v.key === name);
 
       let next;
@@ -150,12 +189,21 @@ export function useUpdateEnvironmentVariable(collectionId?: string | null) {
       );
       return true;
     },
-    [dispatch, getEditTarget, ensureTargetActive, liveVariablesByEnvId],
+    [
+      dispatch,
+      getEditTarget,
+      createDefaultTarget,
+      ensureTargetActive,
+      store,
+    ],
   );
 
   return {
     updateVariable,
     getEditTarget,
-    canEdit: Boolean(preferredTarget),
+    /** True when an env already exists, or when we can auto-create one. */
+    canEdit: true,
+    willCreateEnvironment: !preferredTarget,
+    preferredTarget,
   };
 }

@@ -40,12 +40,25 @@ export interface JavaProjectManifest {
   sourceRoots?: string[];
 }
 
+export interface RustProjectManifest {
+  dependencies: Record<string, string>;
+  workspaceMembers?: string[];
+  sourceRoots?: string[];
+}
+
+export interface GoProjectManifest {
+  dependencies: Record<string, string>;
+  modulePath?: string;
+}
+
 export interface DetectionContext {
   projectPath: string;
   fs: FileSystemAdapter;
   packageJson?: PackageJson;
   pythonProject?: PythonProjectManifest;
   javaProject?: JavaProjectManifest;
+  rustProject?: RustProjectManifest;
+  goProject?: GoProjectManifest;
 }
 
 export interface ScanContext extends DetectionContext {

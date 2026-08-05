@@ -1,0 +1,43 @@
+Fishman
+Copyright 2026 Narendra Nishad
+
+This product includes software developed at Fishman
+(https://github.com/nkrider7/fishman).
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---------------------------------------------------------------------------
+
+This product bundles and depends on third-party libraries.
+Those libraries remain the property of their respective owners and are
+used under their own licenses (including MIT, Apache-2.0, BSD, and others).
+
+Notable runtime and build dependencies include, without limitation:
+
+  - Tauri and Tauri plugins (Apache-2.0 / MIT)
+  - React and React DOM (MIT)
+  - Redux Toolkit (MIT)
+  - Vite (MIT)
+  - reqwest (MIT / Apache-2.0)
+  - tokio (MIT)
+  - Monaco Editor (MIT)
+  - Radix UI primitives (MIT)
+  - Tailwind CSS (MIT)
+  - Lucide icons (ISC)
+  - isomorphic-git (MIT)
+  - GraphQL.js (MIT)
+  - and other packages declared in package.json and Cargo.toml
+
+For the authoritative license text of each dependency, consult the
+corresponding package metadata and LICENSE files distributed with those
+projects.

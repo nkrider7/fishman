@@ -1,7 +1,8 @@
 # Releasing Fishman
 
-Production installers are built by GitHub Actions and attached to a [GitHub Release](https://github.com/nkrider7/fishman/releases).
+For a short ship checklist, see [release-checklist.md](release-checklist.md).
 
+Production installers are built by GitHub Actions and attached to a [GitHub Release](https://github.com/nkrider7/fishman/releases).
 | Platform | Artifact | Who it’s for |
 |----------|----------|----------------|
 | Linux | `.AppImage` | Portable — `chmod +x` then run |

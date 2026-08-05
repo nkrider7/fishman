@@ -9,6 +9,10 @@ import { pythonLanguagePlugin } from "../language/python-plugin";
 import { javaLanguagePlugin } from "../language/java-plugin";
 import { detectPythonProject } from "../plugins/python/shared/project-detector";
 import { detectJavaProject } from "../plugins/java/shared/project-detector";
+import { detectRustProject } from "../plugins/rust/shared/project-detector";
+import { rustLanguagePlugin } from "../language/rust-plugin";
+import { detectGoProject } from "../plugins/go/shared/project-detector";
+import { goLanguagePlugin } from "../language/go-plugin";
 
 let initialized = false;
 
@@ -16,10 +20,12 @@ export function initializeScanner(
   registry: ScannerPluginRegistry = scannerRegistry,
 ): void {
   if (initialized) return;
-  // Order: prefer explicit manifests. Python/Java before Node so a monorepo
-  // with package.json + pom.xml still classifies by the selected folder markers.
+  // Order: prefer explicit manifests. Python/Java/Rust/Go before Node so a monorepo
+  // with package.json + pom.xml / Cargo.toml / go.mod still classifies by folder markers.
   registry.registerLanguage(pythonLanguagePlugin);
   registry.registerLanguage(javaLanguagePlugin);
+  registry.registerLanguage(rustLanguagePlugin);
+  registry.registerLanguage(goLanguagePlugin);
   registry.registerLanguage(nodeLanguagePlugin);
   initialized = true;
 }
@@ -57,7 +63,7 @@ export async function scanProject(
       warnings: [
         {
           message:
-            "Could not detect project language. Supported: Python (requirements.txt, pyproject.toml), Java (pom.xml / Gradle), and Node.js (package.json).",
+            "Could not detect project language. Supported: Python (requirements.txt, pyproject.toml), Java (pom.xml / Gradle), Rust (Cargo.toml), Go (go.mod), and Node.js (package.json).",
           severity: "error",
         },
       ],
@@ -99,6 +105,35 @@ export async function scanProject(
       },
     };
     for (const message of javaProjectInfo.warnings) {
+      warnings.push({ message, severity: "warning" });
+    }
+  }
+
+  if (language.id === "rust") {
+    const rustProjectInfo = await detectRustProject(fs, options.projectPath);
+    detectionCtx = {
+      ...detectionCtx,
+      rustProject: {
+        dependencies: rustProjectInfo.dependencies,
+        workspaceMembers: rustProjectInfo.workspaceMembers,
+        sourceRoots: rustProjectInfo.sourceRoots,
+      },
+    };
+    for (const message of rustProjectInfo.warnings) {
+      warnings.push({ message, severity: "warning" });
+    }
+  }
+
+  if (language.id === "go") {
+    const goProjectInfo = await detectGoProject(fs, options.projectPath);
+    detectionCtx = {
+      ...detectionCtx,
+      goProject: {
+        dependencies: goProjectInfo.dependencies,
+        modulePath: goProjectInfo.modulePath,
+      },
+    };
+    for (const message of goProjectInfo.warnings) {
       warnings.push({ message, severity: "warning" });
     }
   }

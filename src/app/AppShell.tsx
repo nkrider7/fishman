@@ -15,11 +15,19 @@ import { CookiesManagerDialog } from "@/components/cookies/CookiesManagerDialog"
 import { ToolsPanel } from "@/components/tools-panel";
 import { RequestBuilder } from "@/components/request/RequestBuilder";
 import { ResponseViewer } from "@/components/response/ResponseViewer";
+import {
+  WsRequestBuilder,
+  WsSessionPanel,
+} from "@/components/websocket";
+import { isWebSocketRequest } from "@/types/request";
 import { RunnerView } from "@/components/runner/RunnerView";
 import { CollectionSettingsView } from "@/components/collections/settings/CollectionSettingsView";
 import { GitUiView } from "@/components/git-ui";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
+import { useZoomKeyboardShortcuts } from "@/hooks/useAppZoom";
+import { useFullscreenKeyboardShortcuts } from "@/hooks/useFullscreen";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { store } from "@/store";
 import { initDraft } from "@/store/slices/requestSlice";
 import { HomePage } from "@/pages/Home";
 import { cn } from "@/utils/cn";
@@ -28,13 +36,18 @@ export function AppShell() {
   const dispatch = useAppDispatch();
   const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
   const tabs = useAppSelector((s) => s.tabs.tabs);
-  const drafts = useAppSelector((s) => s.request.drafts);
+  // Only the active draft — subscribing to the whole drafts map re-rendered
+  // TitleBar, Sidebar, StatusBar, and all dialogs on every keystroke.
+  const activeDraft = useAppSelector((s) =>
+    activeTabId ? s.request.drafts[activeTabId] : undefined,
+  );
   const collapsed = useAppSelector((s) => s.settings.sidebarCollapsed);
   const workspaceLayout = useAppSelector((s) => s.settings.workspaceLayout);
   const responseVisible = useAppSelector((s) => s.ui.responsePanelVisible);
   const scriptConsoleVisible = useAppSelector((s) => s.ui.scriptConsoleVisible);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const isWsTab = Boolean(activeDraft && isWebSocketRequest(activeDraft));
   const isRunnerTab = activeTab?.kind === "runner";
   const isCollectionTab = activeTab?.kind === "collection";
   const isGitTab = activeTab?.kind === "git";
@@ -78,6 +91,9 @@ export function AppShell() {
   });
 
   useKeyboardShortcuts();
+  // Zoom apply + View shortcuts (zoom / fullscreen) once at the shell root.
+  useZoomKeyboardShortcuts();
+  useFullscreenKeyboardShortcuts();
 
   useEffect(() => {
     const blockNativeContextMenu = (event: MouseEvent) => {
@@ -91,13 +107,14 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
+    const { drafts } = store.getState().request;
     for (const tab of tabs) {
       if (tab.kind === "runner" || tab.kind === "collection" || tab.kind === "git") continue;
       if (!drafts[tab.id]) {
         dispatch(initDraft({ tabId: tab.id }));
       }
     }
-  }, [tabs, drafts, dispatch]);
+  }, [tabs, dispatch]);
 
   const workspaceContent = !activeTabId ? (
     <HomePage />
@@ -133,12 +150,16 @@ export function AppShell() {
           minSize={isHorizontal ? 25 : 20}
           className="min-h-0 min-w-0"
         >
-          <RequestBuilder tabId={activeTabId} />
+          {isWsTab ? (
+            <WsRequestBuilder tabId={activeTabId} />
+          ) : (
+            <RequestBuilder tabId={activeTabId} />
+          )}
         </Panel>
         <Separator
           className={cn(
             "bg-border transition-colors hover:bg-primary/50 data-[separator=active]:bg-primary/50",
-            isHorizontal ? "w-1" : "h-1.5",
+            isHorizontal ? "w-[2px]" : "h-[2px]",
           )}
         />
         <Panel
@@ -147,12 +168,20 @@ export function AppShell() {
           minSize={isHorizontal ? 25 : 20}
           className="min-h-0 min-w-0"
         >
-          <ResponseViewer tabId={activeTabId} />
+          {isWsTab ? (
+            <WsSessionPanel tabId={activeTabId} />
+          ) : (
+            <ResponseViewer tabId={activeTabId} />
+          )}
         </Panel>
       </Group>
     ) : (
       <div className="min-h-0 min-w-0 flex-1">
-        <RequestBuilder tabId={activeTabId} />
+        {isWsTab ? (
+          <WsRequestBuilder tabId={activeTabId} />
+        ) : (
+          <RequestBuilder tabId={activeTabId} />
+        )}
       </div>
     );
 
@@ -186,7 +215,7 @@ export function AppShell() {
       >
         <Sidebar />
       </Panel>
-      <Separator className="w-1 bg-border transition-colors hover:bg-primary/50 data-[separator=active]:bg-primary/50" />
+      <Separator className="w-px bg-border transition-colors hover:bg-primary/50 data-[separator=active]:bg-primary/50" />
       <Panel id="main" minSize={40} className="h-full min-h-0">
         {mainContent}
       </Panel>
@@ -194,7 +223,7 @@ export function AppShell() {
   );
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background">
       <TitleBar />
 
       {scriptConsoleVisible ? (
@@ -207,7 +236,7 @@ export function AppShell() {
           <Panel id="workspace" defaultSize={72} minSize={35} className="min-h-0">
             {appBody}
           </Panel>
-          <Separator className="h-1.5 bg-border transition-colors hover:bg-primary/50 data-[separator=active]:bg-primary/50" />
+          <Separator className="h-px bg-border transition-colors hover:bg-primary/50 data-[separator=active]:bg-primary/50" />
           <Panel id="tools-panel" defaultSize={28} minSize={15} className="min-h-0">
             <ToolsPanel
               tabId={activeTabId && !isSpecialTab ? activeTabId : null}

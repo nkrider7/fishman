@@ -1,0 +1,76 @@
+name: Bug report
+description: Report unexpected behavior or a regression
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Fishman. Please search existing issues first.
+        Security issues must be reported privately via [Security Advisories](https://github.com/nkrider7/fishman/security/advisories/new).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear, short description of the bug.
+      placeholder: When I send a WebSocket message, the UI freezes…
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps others can follow.
+      placeholder: |
+        1. Open Fishman
+        2. Create a WebSocket request to …
+        3. Click Connect
+        4. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Fishman version or commit, install method.
+      placeholder: |
+        - OS: Ubuntu 24.04
+        - Fishman: v0.1.1 (AppImage) or commit abc123
+        - Node / Rust (if building from source): …
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Terminal output, DevTools errors, or screenshots (optional).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and discussions
+          required: true
+        - label: This is not a security vulnerability (those go to Security Advisories)
+          required: true

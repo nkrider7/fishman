@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Activity,
   Network,
@@ -43,6 +44,13 @@ export function ToolsPanel({ tabId }: ToolsPanelProps) {
       ? getScriptErrorFromPipeline(s.scriptExecution.byTab[tabId]?.pipeline)
       : null,
   );
+  // Keep PTY sessions alive when switching away from the Terminal tab.
+  const [terminalVisited, setTerminalVisited] = useState(
+    () => activeTab === "terminal",
+  );
+  useEffect(() => {
+    if (activeTab === "terminal") setTerminalVisited(true);
+  }, [activeTab]);
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t border-border bg-background">
@@ -106,7 +114,16 @@ export function ToolsPanel({ tabId }: ToolsPanelProps) {
         {activeTab === "performance" && (
           <PerformanceTab active={panelVisible && activeTab === "performance"} />
         )}
-        {activeTab === "terminal" && <TerminalTab />}
+        {terminalVisited && (
+          <div
+            className={cn(
+              "h-full min-h-0",
+              activeTab !== "terminal" && "hidden",
+            )}
+          >
+            <TerminalTab active={activeTab === "terminal"} />
+          </div>
+        )}
       </div>
     </div>
   );

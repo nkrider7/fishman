@@ -17,7 +17,7 @@ export function ResponseEmptyState() {
 
   return (
     <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-hidden px-6 py-8 text-center">
-      <div className="flex items-center justify-center rounded-2xl px-5 py-4 ">
+      <div className="flex items-center justify-center rounded-2xl px-5  ">
         <img
           src={jinbeFishing}
           alt=""
@@ -25,9 +25,9 @@ export function ResponseEmptyState() {
           className="h-32 w-auto select-none object-contain dark:invert-0 opacity-55 invert dark:opacity-40"
         />
       </div>
-      <h2 className="text-base font-bold tracking-tight text-foreground/65">
+      {/* <h2 className="text-base font-bold tracking-tight text-foreground/65">
         Waiting for a catch here 
-      </h2>
+      </h2> */}
       {/* <p className="mt-1.5 max-w-[300px] text-sm leading-relaxed text-muted-foreground">
         Send a request and the response will land here — status, body, headers,
         and timing.

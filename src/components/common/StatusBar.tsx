@@ -3,17 +3,18 @@ import {
   Bell,
   Cookie,
   Key,
+  Minus,
   Moon,
+  Plus,
   Search,
   Settings,
   Sun,
   Terminal,
-  Wrench,
 } from "lucide-react";
 import { EnvironmentSelector } from "@/components/environments/EnvironmentSelector";
 import { StatusBarGit } from "@/components/common/StatusBarGit";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
-import { toggleDevTools } from "@/tauri/devtools";
+import { useAppZoom } from "@/hooks/useAppZoom";
 import {
   setSidebarView,
   toggleScriptConsole,
@@ -24,6 +25,7 @@ import {
   setSidebarCollapsed,
 } from "@/store/slices/settingsSlice";
 import { getScriptErrorFromPipeline } from "@/script-engine/utils/script-errors";
+import { formatZoomPercent, modKeyLabel } from "@/utils/zoom";
 import { cn } from "@/utils/cn";
 import packageJson from "../../../package.json";
 
@@ -107,25 +109,74 @@ export function StatusBar() {
           title={
             scriptError
               ? `Script error: ${scriptError.error.message}`
-              : "Toggle tools panel (Console, Network, Performance, Terminal)"
+              : "Toggle tools panel (Console, Network, Performance, Terminal). Terminal: Ctrl+`"
           }
           active={scriptConsoleVisible}
           error={!!scriptError}
           onClick={() => dispatch(toggleScriptConsole())}
         />
-        <StatusBarItem
-          icon={Wrench}
-          label="Dev Tools"
-          title="Toggle developer tools"
-          onClick={() => {
-            void toggleDevTools();
-          }}
-        />
+        <StatusBarZoomControl />
         <span className="ml-0.5 px-1 text-[9px] text-muted-foreground/70">
           v{packageJson.version}
         </span>
       </div>
     </footer>
+  );
+}
+
+function StatusBarZoomControl() {
+  const { zoomLevel, zoomIn, zoomOut, resetZoom, canZoomIn, canZoomOut } =
+    useAppZoom();
+  const mod = modKeyLabel();
+  const percent = formatZoomPercent(zoomLevel);
+
+  return (
+    <div
+      className="ml-0.5 flex h-4 items-center rounded border border-border/50 bg-background/40"
+      title={`Zoom ${percent} (${mod}+ / ${mod}+- / ${mod}+0)`}
+      role="group"
+      aria-label={`Zoom ${percent}`}
+    >
+      <button
+        type="button"
+        title={`Zoom out (${mod}+-)`}
+        aria-label="Zoom out"
+        disabled={!canZoomOut}
+        onClick={zoomOut}
+        className={cn(
+          "flex h-full w-4 items-center justify-center rounded-l transition-colors",
+          canZoomOut
+            ? "hover:bg-accent hover:text-foreground"
+            : "cursor-default opacity-35",
+        )}
+      >
+        <Minus className="h-2.5 w-2.5" strokeWidth={2.5} />
+      </button>
+      <button
+        type="button"
+        title={`Reset zoom to 100% (${mod}+0)`}
+        aria-label={`Current zoom ${percent}, click to reset`}
+        onClick={resetZoom}
+        className="min-w-9 px-0.5 text-center font-medium tabular-nums transition-colors hover:bg-accent hover:text-foreground"
+      >
+        {percent}
+      </button>
+      <button
+        type="button"
+        title={`Zoom in (${mod}++)`}
+        aria-label="Zoom in"
+        disabled={!canZoomIn}
+        onClick={zoomIn}
+        className={cn(
+          "flex h-full w-4 items-center justify-center rounded-r transition-colors",
+          canZoomIn
+            ? "hover:bg-accent hover:text-foreground"
+            : "cursor-default opacity-35",
+        )}
+      >
+        <Plus className="h-2.5 w-2.5" strokeWidth={2.5} />
+      </button>
+    </div>
   );
 }
 

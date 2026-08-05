@@ -10,12 +10,17 @@ import {
 import { CookiesManager } from "@/components/cookies/CookiesManager";
 
 export function CookiesManagerDialog() {
-  const dispatch = useAppDispatch();
   const open = useAppSelector((s) => s.ui.cookiesManagerOpen);
+  if (!open) return null;
+  return <CookiesManagerDialogOpen />;
+}
+
+function CookiesManagerDialogOpen() {
+  const dispatch = useAppDispatch();
 
   return (
     <Dialog
-      open={open}
+      open
       onOpenChange={(next) => dispatch(setCookiesManagerOpen(next))}
     >
       <DialogContent className="flex h-[min(88vh,900px)] w-[min(960px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0">

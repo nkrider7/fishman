@@ -141,7 +141,7 @@ export function VariableAwareInput({
   const pendingCaretRef = useRef<number | null>(null);
   const { resolveVariable, variableInfo } = useVariableContext(collectionId);
   const getSuggestions = useVariableSuggestionCatalogFactory(collectionId);
-  const { updateVariable, getEditTarget, canEdit } =
+  const { updateVariable, getEditTarget, canEdit, willCreateEnvironment } =
     useUpdateEnvironmentVariable(collectionId);
   const { pushChange, undo, redo } = useTextUndoHistory({
     value,
@@ -330,9 +330,9 @@ export function VariableAwareInput({
   }, []);
 
   const handleSaveVariable = useCallback(
-    (name: string, nextValue: string) => {
-      updateVariable(name, nextValue);
-      closePinnedPopover();
+    async (name: string, nextValue: string) => {
+      const ok = await updateVariable(name, nextValue);
+      if (ok) closePinnedPopover();
     },
     [updateVariable, closePinnedPopover],
   );
@@ -574,6 +574,7 @@ export function VariableAwareInput({
               isLive={popoverDetails.isLive}
               editing={popoverDetails.editing}
               canEdit={Boolean(canEditResolved)}
+              willCreateEnvironment={willCreateEnvironment}
               editScope={popoverDetails.editScope}
               editEnvName={popoverDetails.editEnvName}
               onSave={(nextValue) =>

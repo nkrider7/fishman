@@ -1,0 +1,33 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Explicit text types
+*.{js,jsx,ts,tsx,mjs,cjs} text eol=lf
+*.{css,scss,sass,less} text eol=lf
+*.{json,jsonc,json5} text eol=lf
+*.{yml,yaml} text eol=lf
+*.{md,mdx} text eol=lf
+*.{html,htm,svg,xml} text eol=lf
+*.{toml,ini} text eol=lf
+*.{sh,bash} text eol=lf
+*.rs text eol=lf
+*.sql text eol=lf
+*.fish text eol=lf
+LICENSE text eol=lf
+NOTICE text eol=lf
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary
+*.{png,jpg,jpeg,gif,webp,ico,icns} binary
+*.{woff,woff2,ttf,otf,eot} binary
+*.{zip,tar,gz,7z,xz} binary
+*.{pdf,wasm} binary
+*.{exe,dll,so,dylib,a} binary
+
+# Lockfiles — keep stable for diffs/reviews
+package-lock.json text eol=lf
+Cargo.lock text eol=lf

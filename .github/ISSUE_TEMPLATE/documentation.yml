@@ -1,0 +1,28 @@
+name: Documentation
+description: Report a docs gap, typo, or unclear guide
+title: "[docs]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: Where
+      description: File path, README section, or URL.
+      placeholder: docs/git-native.md — Secrets section
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Optional rewrite or outline.
+    validations:
+      required: false

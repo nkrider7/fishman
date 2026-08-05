@@ -16,7 +16,7 @@ export function TimelineTable({ rows }: TimelineTableProps) {
   return (
     <div className="max-h-48 overflow-auto rounded-md border border-border">
       <table className="w-full text-left text-[11px]">
-        <thead className="sticky top-0 bg-muted/80 text-muted-foreground backdrop-blur">
+        <thead className="sticky top-0 bg-muted text-muted-foreground">
           <tr>
             <th className="px-2 py-1.5 font-medium">Time</th>
             <th className="px-2 py-1.5 font-medium">VUs</th>

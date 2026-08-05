@@ -12,11 +12,13 @@ interface VariablePopoverProps {
   isLive?: boolean;
   editing?: boolean;
   canEdit?: boolean;
+  /** When true, saving will create a Default environment first. */
+  willCreateEnvironment?: boolean;
   editScope?: VariableScope | null;
   editEnvName?: string | null;
   style?: React.CSSProperties;
   className?: string;
-  onSave?: (value: string) => void;
+  onSave?: (value: string) => void | Promise<void>;
   onCancelEdit?: () => void;
 }
 
@@ -27,6 +29,7 @@ export function VariablePopover({
   isLive = false,
   editing = false,
   canEdit = false,
+  willCreateEnvironment = false,
   editScope = null,
   editEnvName = null,
   style,
@@ -36,12 +39,14 @@ export function VariablePopover({
 }: VariablePopoverProps) {
   const [copied, setCopied] = useState(false);
   const [draftValue, setDraftValue] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (editing) {
       cancelledRef.current = false;
+      setSaving(false);
       setDraftValue(value ?? "");
       window.requestAnimationFrame(() => inputRef.current?.focus());
     }
@@ -59,7 +64,16 @@ export function VariablePopover({
   };
 
   const handleSave = () => {
-    onSave?.(draftValue);
+    if (saving || !canEdit) return;
+    setSaving(true);
+    void Promise.resolve(onSave?.(draftValue)).finally(() => {
+      setSaving(false);
+    });
+  };
+
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    onCancelEdit?.();
   };
 
   const scopeLabel =
@@ -138,6 +152,13 @@ export function VariablePopover({
               ({editScopeLabel})
             </p>
           )}
+          {canEdit && willCreateEnvironment && !editEnvName && (
+            <p className="text-[10px] text-muted-foreground">
+              Creates a{" "}
+              <span className="font-medium text-foreground">Default</span>{" "}
+              environment and saves there
+            </p>
+          )}
           <Input
             ref={inputRef}
             value={draftValue}
@@ -149,8 +170,7 @@ export function VariablePopover({
               }
               if (e.key === "Escape") {
                 e.preventDefault();
-                cancelledRef.current = true;
-                onCancelEdit?.();
+                handleCancel();
               }
             }}
             onBlur={() => {
@@ -158,16 +178,21 @@ export function VariablePopover({
                 cancelledRef.current = false;
                 return;
               }
+              // No-op close: don't auto-create an env when nothing changed.
+              if (draftValue === (value ?? "")) {
+                handleCancel();
+                return;
+              }
               handleSave();
             }}
             className="h-8 font-mono text-xs"
             spellCheck={false}
-            disabled={!canEdit}
+            disabled={!canEdit || saving}
             placeholder="Enter value"
           />
           {!canEdit ? (
             <p className="text-[10px] text-muted-foreground">
-              Create or select an environment to edit variables.
+              This variable cannot be edited here.
             </p>
           ) : (
             <p className="text-[10px] text-muted-foreground">

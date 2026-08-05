@@ -91,11 +91,34 @@ export const fishScriptsSchema = z
   })
   .passthrough();
 
-/** One HTTP request — stored as `<Name>.fish` (pretty JSON). */
+export const fishWsMessageTemplateSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(["text", "json", "binary"]).default("text"),
+    body: z.string().default(""),
+  })
+  .passthrough();
+
+export const fishWebsocketSchema = z
+  .object({
+    messageType: z.enum(["text", "json", "binary"]).default("text"),
+    messages: z.array(fishWsMessageTemplateSchema).default([]),
+    protocols: z.array(z.string()).default([]),
+    autoReconnect: z.boolean().default(false),
+    reconnectIntervalMs: z.number().int().default(2000),
+    maxReconnectAttempts: z.number().int().default(5),
+    showSystemFrames: z.boolean().default(false),
+  })
+  .passthrough();
+
+/** One HTTP/WebSocket request — stored as `<Name>.fish` (pretty JSON). */
 export const fishRequestSchema = z
   .object({
     id: z.string().min(1),
     name: z.string().min(1),
+    /** Defaults to http for legacy .fish files. */
+    protocol: z.enum(["http", "websocket"]).default("http"),
     method: z.string().min(1),
     url: z.string().default(""),
     headers: z.array(fishKvSchema).default([]),
@@ -107,6 +130,7 @@ export const fishRequestSchema = z
       postResponse: "",
       tests: "",
     }),
+    websocket: fishWebsocketSchema.optional(),
     variables: z.array(fishKvSchema).default([]),
     tags: z.array(z.string()).default([]),
     description: z.string().optional(),

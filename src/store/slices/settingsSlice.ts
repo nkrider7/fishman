@@ -20,6 +20,7 @@ export function toAppSettings(state: SettingsState): AppSettings {
     timeoutMs: state.timeoutMs,
     sidebarCollapsed: state.sidebarCollapsed,
     workspaceLayout: state.workspaceLayout,
+    zoomLevel: state.zoomLevel,
     activeGlobalEnvironmentId: state.activeGlobalEnvironmentId,
     activeCollectionEnvironmentIds: state.activeCollectionEnvironmentIds,
   };
@@ -69,6 +70,9 @@ const settingsSlice = createSlice({
     setWorkspaceLayout: (state, action: PayloadAction<WorkspaceLayout>) => {
       state.workspaceLayout = action.payload;
     },
+    setZoomLevel: (state, action: PayloadAction<number>) => {
+      state.zoomLevel = action.payload;
+    },
     updateSettings: (state, action: PayloadAction<Partial<AppSettings>>) => {
       Object.assign(state, action.payload);
     },
@@ -94,6 +98,7 @@ export const {
   setTimeoutMs,
   setSidebarCollapsed,
   setWorkspaceLayout,
+  setZoomLevel,
   updateSettings,
 } = settingsSlice.actions;
 export default settingsSlice.reducer;

@@ -13,6 +13,11 @@ import {
   syncGraphQLBody,
   type GraphQLConfig,
 } from "@/graphql";
+import {
+  createDefaultWsConfig,
+  type WsConfig,
+  type WsMessageTemplate,
+} from "@/types/websocket";
 import type {
   FishAuth,
   FishBody,
@@ -187,14 +192,60 @@ function bodyFromFish(body: FishBody | undefined): {
   };
 }
 
+function websocketToFish(config: WsConfig | undefined) {
+  if (!config) return undefined;
+  return {
+    messageType: config.messageType,
+    messages: config.messages.map((m) => ({
+      id: m.id,
+      name: m.name,
+      type: m.type,
+      body: m.body,
+    })),
+    protocols: config.protocols ?? [],
+    autoReconnect: config.autoReconnect,
+    reconnectIntervalMs: config.reconnectIntervalMs,
+    maxReconnectAttempts: config.maxReconnectAttempts,
+    showSystemFrames: config.showSystemFrames,
+  };
+}
+
+function websocketFromFish(
+  raw: FishRequest["websocket"] | undefined,
+): WsConfig | undefined {
+  if (!raw) return undefined;
+  const defaults = createDefaultWsConfig();
+  const messages: WsMessageTemplate[] = Array.isArray(raw.messages)
+    ? raw.messages.map((m) => ({
+        id: ensureId(m.id, () => createUid("req")),
+        name: m.name ?? "Message",
+        type: m.type ?? "text",
+        body: m.body ?? "",
+      }))
+    : [];
+  return {
+    messageType: raw.messageType ?? defaults.messageType,
+    messages,
+    protocols: Array.isArray(raw.protocols) ? raw.protocols : [],
+    autoReconnect: raw.autoReconnect ?? defaults.autoReconnect,
+    reconnectIntervalMs:
+      raw.reconnectIntervalMs ?? defaults.reconnectIntervalMs,
+    maxReconnectAttempts:
+      raw.maxReconnectAttempts ?? defaults.maxReconnectAttempts,
+    showSystemFrames: raw.showSystemFrames ?? defaults.showSystemFrames,
+  };
+}
+
 export function requestDraftToFish(
   draft: RequestDraft,
   options?: { seq?: number; createdAt?: string; updatedAt?: string },
 ): FishRequest {
   const now = new Date().toISOString();
+  const protocol = draft.protocol === "websocket" ? "websocket" : "http";
   return {
     id: draft.id || createUid("req"),
     name: draft.name || "Untitled",
+    protocol,
     method: draft.method,
     url: draft.url ?? "",
     headers: (draft.headers ?? []).map(kvToFish),
@@ -202,6 +253,13 @@ export function requestDraftToFish(
     body: bodyToFish(draft),
     auth: authToFish(draft.auth),
     scripts: scriptsToFish(draft.scripts ?? EMPTY_SCRIPTS),
+    ...(protocol === "websocket"
+      ? {
+          websocket: websocketToFish(
+            draft.websocket ?? createDefaultWsConfig(),
+          ),
+        }
+      : {}),
     variables: [],
     tags: draft.tags ?? [],
     favorite: draft.isFavorite ?? false,
@@ -218,10 +276,12 @@ export function fishRequestToDraft(
 ): RequestDraft {
   const { bodyType, body, formDataFields, graphql } = bodyFromFish(req.body);
   const base = createEmptyRequest();
+  const protocol = req.protocol === "websocket" ? "websocket" : "http";
   return {
     ...base,
     id: req.id,
     name: req.name,
+    protocol,
     method: (req.method as RequestDraft["method"]) || "GET",
     url: req.url ?? "",
     params: (req.query ?? []).map(kvFromFish),
@@ -230,6 +290,10 @@ export function fishRequestToDraft(
     body,
     formDataFields,
     graphql,
+    websocket:
+      protocol === "websocket"
+        ? websocketFromFish(req.websocket) ?? createDefaultWsConfig()
+        : undefined,
     auth: authFromFish(req.auth),
     scripts: scriptsFromFish(req.scripts),
     tags: req.tags ?? [],

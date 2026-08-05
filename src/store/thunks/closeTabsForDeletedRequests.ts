@@ -5,10 +5,11 @@ import { initDraft, removeDraft } from "../slices/requestSlice";
 import { clearResponse } from "../slices/responseSlice";
 import { clearScriptExecution } from "../slices/scriptExecutionSlice";
 import { createEmptyRequest } from "@/types/request";
+import { cleanupWebSocketTabThunk } from "./websocketThunks";
 
 /**
  * Close open tabs that belong to deleted collection requests,
- * and clean up their drafts / responses / script state.
+ * and clean up their drafts / responses / script / websocket state.
  */
 export const closeTabsForDeletedRequests = createAsyncThunk(
   "tabs/closeForDeletedRequests",
@@ -38,6 +39,10 @@ export const closeTabsForDeletedRequests = createAsyncThunk(
       .map((tab) => tab.id);
 
     if (tabIdsToClose.length === 0) return [];
+
+    for (const tabId of tabIdsToClose) {
+      await dispatch(cleanupWebSocketTabThunk(tabId));
+    }
 
     dispatch(closeTabsByIds(tabIdsToClose));
 

@@ -1,9 +1,23 @@
 [package]
 name = "fishman"
 version = "0.1.1"
-description = "A Tauri App"
-authors = ["you"]
+description = "Open-source, native, Git-first API client built with Tauri, Rust, and React"
+authors = ["Narendra Nishad"]
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/nkrider7/fishman"
+homepage = "https://github.com/nkrider7/fishman"
+documentation = "https://github.com/nkrider7/fishman"
+keywords = [
+  "api-client",
+  "rest",
+  "graphql",
+  "websocket",
+  "git",
+  "tauri"
+]
+categories = ["development-tools", "gui"]
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -31,4 +45,7 @@ tauri-plugin-fs = { version = "2.5.1", features = ["watch"] }
 tauri-plugin-dialog = "2.7.1"
 mime_guess = "2.0.5"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+portable-pty = "0.8"
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+futures-util = "0.3"
 

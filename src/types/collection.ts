@@ -93,6 +93,10 @@ export interface SavedRequest {
   scripts_json?: string;
   /** JSON string array of tag labels for runner filters. */
   tags_json?: string;
+  /** "http" (default) or "websocket". Absent on legacy rows. */
+  protocol?: string;
+  /** Serialized WsConfig JSON when protocol is websocket. */
+  websocket_json?: string;
   is_favorite: number;
   sort_order: number;
   created_at: number;

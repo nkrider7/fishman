@@ -9,24 +9,37 @@ import { closeRunnerSession } from "@/store/slices/runnerSlice";
 import { closeSettingsDraft } from "@/store/slices/collectionSettingsSlice";
 import { updateTab } from "@/store/slices/tabsSlice";
 import { openRequestTab } from "@/store/thunks/openRequestTab";
+import { cleanupWebSocketTabThunk } from "@/store/thunks/websocketThunks";
 import { getMethodClass } from "@/utils/requestBuilder";
 import { cn } from "@/utils/cn";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { createEmptyRequest, type Tab } from "@/types/request";
+import {
+  createEmptyRequest,
+  isWebSocketRequest,
+  type RequestDraft,
+  type Tab,
+} from "@/types/request";
 
-function tabMethodLabel(tab: Tab, draftMethod?: string): string {
+function tabMethodLabel(tab: Tab, draft?: RequestDraft): string {
   if (tab.kind === "runner") return "RUN";
   if (tab.kind === "collection") return "SET";
   if (tab.kind === "git") return "GIT";
-  return draftMethod ?? "GET";
+  if (draft && isWebSocketRequest(draft)) return "WS";
+  return draft?.method ?? "GET";
+}
+
+function tabMethodClass(method: string): string {
+  if (method === "WS") {
+    return "text-violet-600 dark:text-violet-400";
+  }
+  return getMethodClass(method);
 }
 
 export function TabBar() {
   const dispatch = useAppDispatch();
   const tabs = useAppSelector((s) => s.tabs.tabs);
   const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
-  const drafts = useAppSelector((s) => s.request.drafts);
   const runnerTabId = useAppSelector((s) => s.runner.tabId);
   const settingsTabId = useAppSelector((s) => s.collectionSettings.draft?.tabId);
   const scrollRootRef = useRef<HTMLDivElement>(null);
@@ -80,6 +93,7 @@ export function TabBar() {
     if (tabId === settingsTabId) {
       dispatch(closeSettingsDraft());
     }
+    void dispatch(cleanupWebSocketTabThunk(tabId));
     dispatch(closeTab(tabId));
     dispatch(removeDraft(tabId));
     dispatch(clearResponse(tabId));
@@ -98,7 +112,6 @@ export function TabBar() {
             <RequestTab
               key={tab.id}
               tab={tab}
-              method={tabMethodLabel(tab, drafts[tab.id]?.method)}
               isActive={tab.id === activeTabId}
               onSelect={() => dispatch(setActiveTab(tab.id))}
               onClose={(e) => handleClose(tab.id, e)}
@@ -126,7 +139,6 @@ export function TabBar() {
 
 interface RequestTabProps {
   tab: Tab;
-  method: string;
   isActive: boolean;
   onSelect: () => void;
   onClose: (e: React.MouseEvent) => void;
@@ -135,13 +147,17 @@ interface RequestTabProps {
 
 function RequestTab({
   tab,
-  method,
   isActive,
   onSelect,
   onClose,
   onPin,
 }: RequestTabProps) {
   const dispatch = useAppDispatch();
+  // Per-tab method subscription — TabBar itself no longer re-renders on
+  // draft keystrokes; only this tab updates when its method/protocol changes.
+  const method = useAppSelector((s) =>
+    tabMethodLabel(tab, s.request.drafts[tab.id]),
+  );
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(tab.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -190,11 +206,11 @@ function RequestTab({
       data-tab-id={tab.id}
       aria-selected={isActive}
       className={cn(
-        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 border-r px-2 text-xs transition-colors",
+        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 border-r border-border/50 px-2.5 text-xs transition-colors",
         editing ? "max-w-[260px]" : "max-w-[200px]",
         isActive
-          ? "bg-background text-foreground shadow-[inset_0_-1px_0_0_hsl(var(--background))]"
-          : "text-muted-foreground hover:bg-background/60",
+          ? "bg-background text-foreground"
+          : "text-muted-foreground hover:bg-background/55 hover:text-foreground/85",
       )}
       onClick={() => {
         if (!editing) onSelect();
@@ -206,10 +222,16 @@ function RequestTab({
         }
       }}
     >
+      {isActive ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[#49cc90]"
+        />
+      ) : null}
       <span
         className={cn(
           "shrink-0 font-semibold leading-none",
-          getMethodClass(method),
+          tabMethodClass(method),
         )}
       >
         {method}

@@ -145,30 +145,30 @@ export function CollectionHeader({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuItem onClick={() => setCreateOpen(true)}>
-                  <Plus className="h-4 w-4" />
+                  <Plus className="text-muted-foreground" />
                   Create collection
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleOpenImport}>
-                  <FolderOpen className="h-4 w-4" />
+                  <FolderOpen className="text-muted-foreground" />
                   Import collection
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setImportOpen(true)}>
-                  <Import className="h-4 w-4" />
+                  <Import className="text-muted-foreground" />
                   Import from file…
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => dispatch(openScanner())}>
-                  <ScanSearch className="h-4 w-4" />
+                  <ScanSearch className="text-muted-foreground" />
                   Scan backend project
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => void dispatch(openProjectAndGitUi())}
                 >
-                  <FolderGit2 className="h-4 w-4" />
+                  <FolderGit2 className="text-muted-foreground" />
                   Open Git project…
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void dispatch(openGitUiTab())}>
-                  <GitBranch className="h-4 w-4" />
+                  <GitBranch className="text-muted-foreground" />
                   Git UI
                 </DropdownMenuItem>
                 {isFilesystem ? (

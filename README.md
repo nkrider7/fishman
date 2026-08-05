@@ -1,111 +1,340 @@
 # Fishman
 
-**A modern, native desktop API client for developers who care about speed, privacy, and flow.**
+**A native, Git-first API client for developers who care about speed, privacy, and flow.**
 
-Fishman is a lightweight REST client built with **Tauri v2** and **React**. It feels like a focused IDE for APIs — resizable panels, multi-tab requests, environments, collections, and a project scanner that turns your backend code into ready-to-hit endpoints.
+Fishman is an open-source desktop API client built with **Rust**, **Tauri v2**, **React**, and **TypeScript**. It combines a focused request workspace with local-first storage and optional Git-native collections that live next to your code.
 
-No Electron bloat. No cloud lock-in. Your requests, history, and secrets stay on your machine.
+No Electron bloat. No cloud lock-in. Your requests, history, and secrets stay on your machine unless you export or commit them.
 
-```
-npm install && npm run tauri dev
-```
+[Features](#features) · [Install](#installation) · [Development](#development-setup) · [Docs](#architecture-overview) · [Contributing](#contributing)
 
 ---
 
-## Why Fishman?
+## Badges
 
-| | Fishman | Typical API clients |
-|---|---|---|
-| **Runtime** | Native Tauri + Rust HTTP | Heavy Electron / browser-only |
-| **Data** | Local SQLite + optional Git-native folders | Often cloud-synced by default |
-| **Code → collections** | Scan Express, NestJS, FastAPI, Spring Boot, and more | Manual entry or OpenAPI only |
-| **UI** | VS Code-style, keyboard-first | Cluttered or web-app laggy |
-| **Import / export** | Postman + native Fishman format | Vendor-specific silos |
-
-**Built for the way you actually work:**
-
-- **Native performance** — HTTP runs through Rust (`reqwest`), not a Chromium network stack. Fast sends, low memory.
-- **Privacy by design** — collections, environments, history, and settings live in local SQLite. Nothing leaves your machine unless you export it.
-- **Code-aware** — point Fishman at a Node project and it discovers routes, builds a collection, and gets you testing in seconds.
-- **Developer UX** — Monaco editor, variable-aware inputs, dark/light/system themes, and shortcuts that stay out of your way.
-- **Migration-friendly** — import Postman collections and export Fishman or Postman when you need to share.
+[![CI](https://github.com/nkrider7/fishman/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrider7/fishman/actions/workflows/ci.yml)
+[![Release](https://github.com/nkrider7/fishman/actions/workflows/release.yml/badge.svg)](https://github.com/nkrider7/fishman/actions/workflows/release.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/nkrider7/fishman)](https://github.com/nkrider7/fishman/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/nkrider7/fishman?style=social)](https://github.com/nkrider7/fishman)
 
 ---
 
 ## Features
 
-### Request builder
+| Area | What you get |
+|------|----------------|
+| **REST** | Full method set including HTTP `QUERY`, rich body types, auth, code gen |
+| **GraphQL** | Query / variables / operation name, introspection docs, data & errors view |
+| **WebSocket** | Connect / disconnect, live timeline, Text / JSON / Binary composer |
+| **Git-native** | Collections as `*.fish` JSON in your repo — branch, review, and merge |
+| **Scanner** | Point at a codebase (or GitHub URL) and generate a collection |
+| **Privacy** | Local SQLite + optional filesystem workspace; nothing synced by default |
+| **Native** | HTTP via Rust `reqwest`; small Tauri shell instead of Chromium-as-app |
 
-- Full REST methods: `GET`, `QUERY`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`, `CONNECT`
-- First-class **HTTP QUERY** (RFC 10008) — safe, idempotent requests with a body
-- Query params, headers, and auth in dedicated tabs
-- Body types: JSON, form-data (text + files), `x-www-form-urlencoded`, raw, XML, HTML, GraphQL, binary
-- **GraphQL** — Query / Variables / Operation Name editors, schema introspection + docs sidebar, GraphQL data/errors response view (HTTP today; subscriptions planned with WebSocket)
-- Auth: Bearer, Basic, API Key (header or query), JWT, OAuth2 token, custom header
-- Multi-tab workspace with pin, unsaved indicators, and close shortcuts
-- **Generate code** snippets (cURL, HTTPie, fetch, axios, Python requests, and more) from the active request
-- **Workspaces** — isolate collections, environments, tabs, history, and cookies; switch in-app or open another workspace in a new window
+**Highlights**
 
-### Response viewer
+- Multi-tab workspace with pin, unsaved indicators, and keyboard shortcuts
+- Environments with `{{variable}}` substitution and live scope hints
+- Import / export Postman and Fishman formats
+- Workspaces, cookies manager, history, themes (light / dark / system)
+- Plugin-oriented scanner and import-export layers
 
-- **Pretty** view with Monaco + interactive JSON tree
-- **Raw**, **Headers**, and timing details
-- JSON tools: beautify, minify, copy, download
-- HTML response preview when the body is markup
-- Status badges, size, and duration at a glance
+---
 
-### Collections & history
+## Screenshots
 
-- Nested folders with rename, duplicate, and delete
-- Organize requests the way your API is structured
-- Auto-saved history grouped by date — replay anything you sent
-- **Git-native collections** — store APIs as `fishman/**/*.fish` JSON next to your code; commit, branch, and review like source (see [docs/git-native.md](docs/git-native.md)).
+> Screenshots coming soon. Place product images under `docs/images/` and link them here.
 
-### Environments & variables
+```text
+docs/images/
+  overview.png
+  request-builder.png
+  git-native.png
+```
 
-- **Global** and **collection-scoped** environments
-- `{{variable}}` substitution in URLs, headers, params, body, and auth
-- Variable-aware inputs with live scope hints
-- Switch environments without rewriting requests
+<!--
+![Overview](docs/images/overview.png)
+![Request builder](docs/images/request-builder.png)
+-->
 
-### Project scanner
+---
 
-Point Fishman at a local backend folder **or a GitHub repo URL** and auto-generate a collection from real routes.
+## Installation
 
-**Supported frameworks today:**
+### Download binaries
 
-| Framework | Detection |
-|-----------|-----------|
-| Express | `express` dependency |
-| Fastify | `fastify` dependency |
-| Koa | `koa` dependency |
-| Hono | `hono` dependency |
-| Elysia | `elysia` dependency |
-| NestJS | Nest decorators / structure |
-| Next.js | App / route conventions |
-| Bun / Nitro | Bun ecosystem markers |
-| FastAPI / Flask / Django | Python manifests |
-| Spring Boot | Maven/Gradle + `@RestController` |
+Installers are published on [GitHub Releases](https://github.com/nkrider7/fishman/releases).
 
-Scan sources: **local folder** or **GitHub URL** (remote fetch into memory — no manual clone).
+| Platform | Artifact | Notes |
+|----------|----------|--------|
+| Linux | `.AppImage` | `chmod +x` then run |
+| Linux | `.deb` | Ubuntu / Debian |
+| Windows | NSIS `*-setup.exe` | Recommended for most users |
+| Windows | `.msi` | Silent / IT install |
 
-AST-based / structured scanning picks up mounts, controllers, and handler bindings — not just string greps.
+macOS builds are not yet in the default release pipeline.
 
-### Import & export
+### From source
 
-- **Import:** Postman collections, Fishman format
-- **Export:** Fishman and Postman
-- Conflict strategies: replace, merge, duplicate, or skip
-- Optional variables, secrets, and metadata on export
+```bash
+git clone https://github.com/nkrider7/fishman.git
+cd fishman
+npm install
+npm run tauri build
+```
 
-### App experience
+See [Development setup](#development-setup) for prerequisites.
 
-- VS Code-style layout: sidebar + request / response panels (resizable, layout remembered)
-- Custom title bar, status bar, and brand loading states
-- Themes: dark, light, or follow system
-- Settings: request timeout, ignore SSL, sidebar collapse
-- Keyboard-first workflow (see shortcuts below)
-- Fast cold start: tiny WebP splash mark (~9KB) + HTML splash before React; window shows after first paint
+---
+
+## Development setup
+
+### Requirements
+
+| Tool | Version |
+|------|---------|
+| Node.js | 20+ (22 LTS recommended) |
+| Rust | Stable (via rustup) |
+| Platform deps | [Tauri prerequisites](https://tauri.app/start/prerequisites/) |
+
+**Ubuntu / Debian**
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+### Running locally
+
+```bash
+npm install
+npm run tauri dev    # full desktop app
+npm test             # unit tests
+npm run tauri build  # production installers
+```
+
+Quick smoke test after launch:
+
+- `GET https://httpbin.org/get`
+- `POST https://httpbin.org/post` with body `{"hello":"world"}`
+
+---
+
+## Project structure
+
+```text
+fishman/
+├── src/                 # React frontend
+│   ├── app/             # App shell & providers
+│   ├── components/      # Feature UI
+│   ├── store/           # Redux Toolkit
+│   ├── services/        # DB, environments, orchestration
+│   ├── scanner/         # Code → collection plugins
+│   ├── import-export/   # Format plugins
+│   ├── git-native/      # Filesystem / Git workspace codec
+│   ├── tauri/           # Typed invoke wrappers
+│   └── types/           # Shared TypeScript models
+├── src-tauri/           # Rust backend (HTTP, SQLite, IPC)
+├── docs/                # Architecture, roadmap, community docs
+├── .github/             # CI, templates, Dependabot
+└── public/              # Static assets
+```
+
+---
+
+## Supported APIs
+
+### REST
+
+- Methods: `GET`, `QUERY`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`, `CONNECT`
+- Bodies: JSON, form-data, `x-www-form-urlencoded`, raw, XML, HTML, GraphQL, binary
+- Auth: Bearer, Basic, API Key, JWT, OAuth2 token, custom header
+- Code snippets: cURL, HTTPie, fetch, axios, Python requests, and more
+
+### GraphQL
+
+- Query / Variables / Operation Name editors
+- Schema introspection and docs sidebar
+- GraphQL data and errors response view
+- Subscriptions planned over the WebSocket client
+
+### WebSocket
+
+- `ws://` and `wss://` connections
+- Handshake headers and auth
+- Live message timeline with filters
+- Text / JSON / Binary composer and saved templates
+- `{{variable}}` support
+
+---
+
+## Git-native collections
+
+Store APIs next to your source — commit, branch, and review like code.
+
+```text
+project/
+└── fishman/
+    ├── workspace.json
+    ├── environments/
+    │   ├── local.json
+    │   └── local.secret.json   # gitignored
+    └── collections/
+        └── Auth/Login.fish
+```
+
+- Deterministic JSON for clean diffs
+- Secrets stay in `*.secret.json`
+- File watcher + conflict UI (ours / theirs)
+- Details: [docs/git-native.md](docs/git-native.md)
+
+---
+
+## Environment variables
+
+| Scope | Behavior |
+|-------|----------|
+| Global | Shared across collections in a workspace |
+| Collection | Scoped to one collection |
+| Secrets | Prefer secret files / gitignored storage |
+
+Use `{{variable}}` in URLs, headers, params, body, auth, and WebSocket fields. Variable-aware inputs show live scope hints.
+
+---
+
+## Roadmap
+
+High-level plan: [docs/roadmap.md](docs/roadmap.md).
+
+| Status | Themes |
+|--------|--------|
+| In progress | WebSocket polish, scanner coverage, Git UX |
+| Planned | OpenAPI / Bruno / Insomnia import, macOS releases, GraphQL subscriptions |
+| Ideas | Collections sharing, richer docs export, more language scanners |
+
+---
+
+## Contributing
+
+We welcome issues, discussions, and pull requests.
+
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md)
+2. Follow the [Code of Conduct](CODE_OF_CONDUCT.md)
+3. Use issue forms for bugs, features, and docs
+
+For large features, open a Discussion first so we can align on design.
+
+---
+
+## Security
+
+Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+
+Do not file public issues for security-sensitive reports.
+
+---
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
+
+```text
+Copyright 2026 Narendra Nishad
+```
+
+See also [NOTICE](NOTICE) for attribution and third-party notices.
+
+---
+
+## Trademark
+
+"Fishman", the Fishman logo, and related branding are trademarks of Narendra Nishad.
+
+The Apache-2.0 license applies to the source code only. It does not grant permission to use the Fishman name, logo, or branding for derivative products in a way that implies endorsement or official affiliation.
+
+See [docs/branding.md](docs/branding.md).
+
+---
+
+## Credits
+
+- Built on [Tauri](https://tauri.app/), [React](https://react.dev/), [Vite](https://vitejs.dev/), and the Rust ecosystem
+- UI primitives inspired by [shadcn/ui](https://ui.shadcn.com/) and [Radix](https://www.radix-ui.com/)
+- Inspired by the developer experience of tools like Bruno, Insomnia, and VS Code
+
+---
+
+## Community
+
+| Channel | Purpose |
+|---------|---------|
+| [GitHub Issues](https://github.com/nkrider7/fishman/issues) | Bugs and actionable tasks |
+| [GitHub Discussions](https://github.com/nkrider7/fishman/discussions) | Ideas, Q&A, show and tell |
+| Discord | Coming soon — placeholder in [docs/community.md](docs/community.md) |
+
+Suggested Discussion categories once enabled:
+
+- **Announcements** — releases and project news
+- **Q&A** — help using Fishman
+- **Ideas** — feature proposals
+- **Show and tell** — scanners, themes, workflows
+- **Development** — contributing and architecture
+
+---
+
+## FAQ
+
+**Is Fishman free?**  
+Yes. The source is Apache-2.0. You can use, modify, and distribute the code under that license.
+
+**Does it require an account or cloud?**  
+No. Data is local by default.
+
+**Can I sync collections with Git?**  
+Yes — use Git-native workspaces under a `fishman/` folder in your project.
+
+**Why Tauri instead of Electron?**  
+Smaller footprint and native Rust HTTP without shipping a full Chromium app shell.
+
+**Where do I download builds?**  
+[GitHub Releases](https://github.com/nkrider7/fishman/releases).
+
+---
+
+## Architecture overview
+
+```mermaid
+flowchart LR
+  UI[React UI] --> RTK[Redux Toolkit]
+  RTK --> SVC[Services]
+  SVC --> INV[Tauri IPC]
+  INV --> RUST[Rust backend]
+  RUST --> HTTP[reqwest]
+  RUST --> DB[(SQLite)]
+  SCAN[Scanner plugins] --> SVC
+  IE[Import / Export] --> SVC
+  GIT[Git-native codec] --> SVC
+```
+
+Deep dive: [docs/architecture.md](docs/architecture.md)
+
+---
+
+## Performance
+
+- HTTP executed in Rust (`reqwest`), not the webview network stack
+- Local SQLite for app state; optional filesystem for Git-native collections
+- Small splash assets and deferred window show for faster perceived startup
+- Virtualized lists for large workspaces where applicable
+
+---
+
+## Future plans
+
+See [docs/roadmap.md](docs/roadmap.md) and [docs/philosophy.md](docs/philosophy.md).
+
+Priorities include broader import formats, macOS packaging, GraphQL subscriptions, and deeper Git workflows — without sacrificing local-first privacy.
 
 ---
 
@@ -120,183 +349,14 @@ AST-based / structured scanning picks up mounts, controllers, and handler bindin
 
 ---
 
-## Tech stack
+## Suggested GitHub topics
 
-| Layer | Technology |
-|-------|------------|
-| Desktop shell | Tauri v2 |
-| Frontend | React 19, TypeScript, Vite |
-| Styling | Tailwind CSS v4, shadcn/ui, Radix |
-| State | Redux Toolkit |
-| HTTP | `reqwest` (Rust) |
-| Database | SQLite via `tauri-plugin-sql` |
-| Editor | Monaco Editor |
-| JSON view | `@uiw/react-json-view` |
-| Scanner | Babel parser / traverse, ts-morph |
+When configuring the repository on GitHub, add:
 
-Native plugins: filesystem, dialogs, opener, SQL.
-
----
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) **20+**
-- [Rust](https://rustup.rs/) (stable)
-- Platform deps for Tauri — see [Tauri prerequisites](https://tauri.app/start/prerequisites/)
-
-**Ubuntu / Debian:**
-
-```bash
-sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev
-```
-
----
-
-## Getting started
-
-```bash
-# Install dependencies
-npm install
-
-# Run in development (Vite + Tauri)
-npm run tauri dev
-
-# Production build
-npm run tauri build
-
-# Unit tests
-npm test
-```
-
-### GitHub Releases (Linux + Windows)
-
-Tag a version to build installers via Actions and publish a Release:
-
-See **[docs/release.md](docs/release.md)** for the full checklist (version bump, tag, downloads, checksums).
-
-```bash
-# after bumping version in package.json, tauri.conf.json, and Cargo.toml
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-### Quick smoke test
-
-After launch, try:
-
-- `GET https://httpbin.org/get`
-- `POST https://httpbin.org/post` with body `{"hello":"world"}`
-
----
-
-## Project structure
-
-```
-fishman/
-├── src/                      # React frontend
-│   ├── app/                  # App shell & providers
-│   ├── components/           # UI by feature (request, response, collections, …)
-│   ├── pages/                # Top-level views
-│   ├── store/                # Redux slices, thunks, selectors
-│   ├── services/             # API, DB, import/export, environments
-│   ├── scanner/              # Project → collection scanner
-│   ├── import-export/        # Format plugins (Postman, Fishman)
-│   ├── git-native/           # YAML collection codec (filesystem / Git)
-│   ├── hooks/                # Shared React hooks
-│   ├── utils/                # Helpers (variables, formatting, …)
-│   ├── types/                # TypeScript models
-│   └── tauri/                # Typed invoke wrappers
-├── src-tauri/                # Rust backend
-│   ├── src/                  # HTTP client, commands, plugins
-│   └── migrations/           # SQLite schema
-├── public/                   # Static assets
-└── package.json
-```
-
----
-
-## Architecture at a glance
-
-```mermaid
-flowchart LR
-  UI[React UI] --> RTK[Redux Toolkit]
-  RTK --> SVC[Services]
-  SVC --> INV[Tauri invoke]
-  INV --> RUST[Rust backend]
-  RUST --> HTTP[reqwest]
-  RUST --> DB[(SQLite)]
-  SCAN[Project scanner] --> SVC
-  IE[Import / Export] --> SVC
-```
-
-- **UI** owns layout, tabs, and editors.
-- **Redux** holds drafts, responses, collections, environments, and settings.
-- **Rust** executes HTTP and persists data — the frontend never talks to the network directly for requests.
-- **Scanner** and **import/export** feed the same collection model, so scanned routes and Postman imports behave like hand-built requests.
-
----
-
-## Configuration & data
-
-| Setting | Default | Notes |
-|---------|---------|--------|
-| Theme | System | Light / dark / system |
-| Timeout | 30s | Per-request wait limit |
-| Ignore SSL | Off | For local / self-signed certs |
-| Environments | — | Global + per-collection active env |
-
-All of this is stored locally via SQLite migrations under `src-tauri/migrations/`.
-
----
-
-## Git-native collections
-
-Fishman workspaces live in your project as plain JSON — no proprietary DB for shared API collections:
-
-```
-project/
-└── fishman/
-    ├── workspace.json
-    ├── environments/
-    │   ├── local.json
-    │   └── local.secret.json   # gitignored
-    └── collections/
-        └── Auth/Login.fish
-```
-
-- Pretty, deterministic JSON (stable key order → clean Git diffs)
-- Secrets stay in `*.secret.json` / `.env.secret`
-- Detect `.git` and full Git status / commit / branch / conflict UI (ours/theirs resolve)
-- Debounced auto-save + recursive `fishman/` file watcher (external edits sync; unsaved drafts are never clobbered)
-- Large-workspace search index + virtualized results / git file lists
-
-Format and roadmap: [docs/git-native.md](docs/git-native.md).
-
-## Roadmap-friendly design
-
-The import/export and scanner layers are **plugin-based**. Formats and frameworks can be added without rewriting the core app. Planned format hooks include Bruno, OpenAPI/Swagger, Insomnia, HAR, and cURL; language detection already covers Node, Python, and Java (Spring Boot), and anticipates Go, Rust, PHP, C#, and Ruby for future scanners.
-
----
-
-## Contributing
-
-Fishman is early (`v0.1.0`) and moving fast. Ideas, bugs, and PRs are welcome:
-
-1. Fork and branch from `main`
-2. `npm install` → `npm run tauri dev`
-3. Keep changes focused; match existing patterns in `src/` and `src-tauri/`
-4. Run `npm test` before opening a PR
-
----
-
-## License
-
-Private / unlicensed for now — treat as proprietary unless a license file is added.
+`tauri` · `rust` · `react` · `typescript` · `api-client` · `graphql` · `rest` · `websocket` · `developer-tools` · `open-source` · `desktop` · `git`
 
 ---
 
 <p align="center">
-  <strong>Fishman</strong> — modern API client for developers.<br/>
-  Open a request. Hit send. Stay in flow.
+  <strong>Fishman</strong> — open a request. Hit send. Stay in flow.
 </p>

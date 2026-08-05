@@ -38,7 +38,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "pointer-events-auto relative z-50 grid w-full max-w-md gap-4 border border-border bg-background p-6 text-foreground shadow-2xl outline-none sm:rounded-lg",
+          "pointer-events-auto relative z-50 grid w-full max-w-md gap-4 border border-border bg-background p-6 text-foreground shadow-lg outline-none sm:rounded-lg",
           "max-h-[min(90vh,900px)]",
           className,
         )}

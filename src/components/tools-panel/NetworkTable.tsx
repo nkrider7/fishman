@@ -37,7 +37,7 @@ export function NetworkTable({ entries, selectedId }: NetworkTableProps) {
 
   return (
     <table className="w-full min-w-[640px] border-collapse text-left text-[11px]">
-      <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+      <thead className="sticky top-0 z-10 bg-muted">
         <tr className="border-b border-border text-muted-foreground">
           <th className="px-2 py-1.5 font-medium">METHOD</th>
           <th className="px-2 py-1.5 font-medium">STATUS</th>

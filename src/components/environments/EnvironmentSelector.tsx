@@ -22,21 +22,27 @@ type SelectorTab = "global" | "collection";
 export function EnvironmentSelector() {
   const dispatch = useAppDispatch();
   const [tab, setTab] = useState<SelectorTab>("global");
-  const {
-    globalEnvironments,
-    collectionEnvironments,
-    activeGlobalEnvironmentId,
-    activeCollectionEnvironmentIds,
-  } = useAppSelector((s) => s.environments);
-  const folders = useAppSelector((s) => s.collections.folders);
-  const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
-  const drafts = useAppSelector((s) => s.request.drafts);
-
-  const activeDraft = activeTabId ? drafts[activeTabId] : null;
-  const rootCollectionId = findRootCollectionId(
-    activeDraft?.collectionId,
-    folders,
+  const globalEnvironments = useAppSelector(
+    (s) => s.environments.globalEnvironments,
   );
+  const collectionEnvironments = useAppSelector(
+    (s) => s.environments.collectionEnvironments,
+  );
+  const activeGlobalEnvironmentId = useAppSelector(
+    (s) => s.environments.activeGlobalEnvironmentId,
+  );
+  const activeCollectionEnvironmentIds = useAppSelector(
+    (s) => s.environments.activeCollectionEnvironmentIds,
+  );
+  const folders = useAppSelector((s) => s.collections.folders);
+  const activeCollectionId = useAppSelector((s) => {
+    const activeTabId = s.tabs.activeTabId;
+    return activeTabId
+      ? s.request.drafts[activeTabId]?.collectionId
+      : undefined;
+  });
+
+  const rootCollectionId = findRootCollectionId(activeCollectionId, folders);
 
   const collectionEnvs = rootCollectionId
     ? (collectionEnvironments[rootCollectionId] ?? [])
@@ -92,7 +98,13 @@ export function EnvironmentSelector() {
           <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-70" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 p-0">
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={4}
+        collisionPadding={8}
+        className="w-64 p-0"
+      >
         <div className="border-b px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Environment

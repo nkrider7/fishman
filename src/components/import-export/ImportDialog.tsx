@@ -41,6 +41,23 @@ export function ImportDialog({
   initialContent,
   initialFilename,
 }: ImportDialogProps) {
+  if (!open) return null;
+  return (
+    <ImportDialogOpen
+      open={open}
+      onOpenChange={onOpenChange}
+      initialContent={initialContent}
+      initialFilename={initialFilename}
+    />
+  );
+}
+
+function ImportDialogOpen({
+  open,
+  onOpenChange,
+  initialContent,
+  initialFilename,
+}: ImportDialogProps) {
   const dispatch = useAppDispatch();
   const folders = useAppSelector((s) => s.collections.folders);
   const [preview, setPreview] = useState<ImportPreview | null>(null);

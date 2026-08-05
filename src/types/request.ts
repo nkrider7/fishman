@@ -6,11 +6,19 @@ import {
   ensureGraphQLConfig,
   syncGraphQLBody,
 } from "@/graphql";
+import type { WsConfig } from "@/types/websocket";
+import { DEFAULT_WS_URL, createDefaultWsConfig } from "@/types/websocket";
 
 export type { GraphQLConfig };
 
 /** Canonical HTTP methods — driven by the method registry. */
 export type HttpMethod = HttpMethodName;
+
+/**
+ * Wire protocol for a request. Defaults to "http" for backward compatibility;
+ * "websocket" requests use a live duplex session instead of one-shot send.
+ */
+export type RequestProtocol = "http" | "websocket";
 
 export type BodyType =
   | "none"
@@ -103,6 +111,8 @@ export interface AuthConfig {
 export interface RequestDraft {
   id: string;
   name: string;
+  /** Defaults to "http" when absent (legacy requests). */
+  protocol?: RequestProtocol;
   method: HttpMethod;
   url: string;
   params: KeyValue[];
@@ -116,6 +126,8 @@ export interface RequestDraft {
    * (or retained when switching away so data is not lost).
    */
   graphql?: GraphQLConfig;
+  /** WebSocket configuration. Present when protocol is "websocket". */
+  websocket?: WsConfig;
   auth: AuthConfig;
   scripts: RequestScripts;
   /** Tags for collection runner include/exclude filters. */
@@ -179,6 +191,24 @@ export function createEmptyRequest(name = "Untitled Request"): RequestDraft {
     auth: { type: "none" },
     scripts: { ...EMPTY_SCRIPTS },
   };
+}
+
+/** Create a WebSocket request pre-filled with a public echo endpoint. */
+export function createWebSocketRequest(
+  name = "New WebSocket",
+): RequestDraft {
+  return {
+    ...createEmptyRequest(name),
+    protocol: "websocket",
+    method: "GET",
+    url: DEFAULT_WS_URL,
+    websocket: createDefaultWsConfig(),
+  };
+}
+
+/** True when the draft represents a WebSocket (live duplex) request. */
+export function isWebSocketRequest(draft: Pick<RequestDraft, "protocol">): boolean {
+  return draft.protocol === "websocket";
 }
 
 /** Create a POST GraphQL request with a starter query. */

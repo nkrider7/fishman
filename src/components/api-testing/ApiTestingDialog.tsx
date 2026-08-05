@@ -24,8 +24,13 @@ import { ConfigView } from "./ConfigView";
 import { ResultsView } from "./ResultsView";
 
 export function ApiTestingDialog() {
-  const dispatch = useAppDispatch();
   const open = useAppSelector((s) => s.ui.apiTestingOpen);
+  if (!open) return null;
+  return <ApiTestingDialogOpen />;
+}
+
+function ApiTestingDialogOpen() {
+  const dispatch = useAppDispatch();
   const view = useAppSelector((s) => s.apiTesting.view);
   const config = useAppSelector((s) => s.apiTesting.config);
   const run = useAppSelector((s) => s.apiTesting.run);
@@ -83,7 +88,7 @@ export function ApiTestingDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent
         className="flex h-[min(90vh,820px)] w-[min(920px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0"
         // Select/Tooltip portals render outside the dialog node — without this,

@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useAppSelector } from "@/hooks/redux";
 import {
   assembleCollectionExportData,
-  exportCollectionContent,
   importExportRegistry,
+  runCollectionExport,
 } from "@/import-export";
 import { rowToRequest } from "@/services/dbService";
 import { Button } from "@/components/ui/button";
@@ -41,6 +39,22 @@ export function ExportDialog({
   onOpenChange,
   collectionId,
 }: ExportDialogProps) {
+  // Unmount while closed — avoid parsing every request on store updates.
+  if (!open) return null;
+  return (
+    <ExportDialogOpen
+      open={open}
+      onOpenChange={onOpenChange}
+      collectionId={collectionId}
+    />
+  );
+}
+
+function ExportDialogOpen({
+  open,
+  onOpenChange,
+  collectionId,
+}: ExportDialogProps) {
   const folders = useAppSelector((s) => s.collections.folders);
   const requests = useAppSelector((s) => s.collections.requests);
   const collectionEnvironments = useAppSelector(
@@ -52,6 +66,7 @@ export function ExportDialog({
   const [includeSecrets, setIncludeSecrets] = useState(false);
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const rootFolder = collectionId
     ? folders.find((f) => f.id === collectionId)
@@ -73,42 +88,28 @@ export function ExportDialog({
     : 0;
 
   const handleExport = async () => {
-    if (!exportData) return;
-    const exporter = importExportRegistry.getExporter(formatId);
-    if (!exporter) return;
-
+    if (!exportData || !collectionId) return;
     setExporting(true);
+    setError(null);
     try {
-      const content = exportCollectionContent(formatId, {
-        data: {
+      const result = await runCollectionExport({
+        formatId,
+        exportData: {
           ...exportData,
           variables: [],
-          environments: collectionId
-            ? collectionEnvironments[collectionId] ?? []
-            : [],
         },
+        environments: collectionEnvironments[collectionId] ?? [],
         options: {
           includeVariables,
           includeSecrets,
           includeMetadata,
         },
       });
-
-      const defaultName = `${exportData.rootFolder.name}.${exporter.defaultExtension}`;
-      const path = await save({
-        filters: [
-          {
-            name: exporter.name,
-            extensions: exporter.defaultExtension.split(".").slice(-1),
-          },
-        ],
-        defaultPath: defaultName,
-      });
-
-      if (path) {
-        await writeTextFile(path, content);
+      if (result.status === "saved") {
         onOpenChange(false);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
     } finally {
       setExporting(false);
     }
@@ -192,6 +193,10 @@ export function ExportDialog({
                 </label>
               </div>
             </div>
+
+            {error ? (
+              <p className="text-sm text-destructive">{error}</p>
+            ) : null}
           </div>
         )}
 
@@ -199,10 +204,7 @@ export function ExportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleExport}
-            disabled={!exportData || exporting}
-          >
+          <Button onClick={handleExport} disabled={!exportData || exporting}>
             <Download className="h-4 w-4" />
             {exporting ? "Exporting…" : "Export"}
           </Button>

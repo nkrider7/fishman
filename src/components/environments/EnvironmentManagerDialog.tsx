@@ -11,8 +11,15 @@ import {
 } from "@/components/ui/dialog";
 
 export function EnvironmentManagerDialog() {
-  const dispatch = useAppDispatch();
   const open = useAppSelector((s) => s.ui.environmentManagerOpen);
+  // Keep closed dialogs fully unmounted — EnvironmentManager has heavy
+  // subscriptions that otherwise re-ran on every unrelated store update.
+  if (!open) return null;
+  return <EnvironmentManagerDialogOpen />;
+}
+
+function EnvironmentManagerDialogOpen() {
+  const dispatch = useAppDispatch();
   const dirty = useAppSelector((s) => s.environments.dirty);
 
   const handleOpenChange = useCallback(
@@ -29,7 +36,7 @@ export function EnvironmentManagerDialog() {
   );
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent className="flex h-[min(88vh,900px)] w-[min(960px,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 space-y-1 border-b px-5 py-4 text-left">
           <DialogTitle className="text-base font-semibold">

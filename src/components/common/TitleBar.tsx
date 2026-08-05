@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { AppIcon } from "@/components/common/AppIcon";
+import { AppMenu } from "@/components/common/AppMenu";
 import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
@@ -74,8 +75,9 @@ export function TitleBar() {
 
   return (
     <header className="flex h-8 shrink-0 select-none items-center border-b border-border/60 bg-muted/50 text-foreground">
-      {/* Workspace switcher — left (not a drag region so clicks work) */}
-      <div className="flex h-full min-w-36 max-w-52 items-center gap-1 pl-2.5 pr-1">
+      {/* Left — app menu + workspace (not a drag region so clicks work) */}
+      <div className="flex h-full min-w-40 max-w-60 items-center gap-0.5 pl-1.5 pr-1">
+        <AppMenu />
         <WorkspaceSwitcher />
       </div>
 
@@ -90,13 +92,14 @@ export function TitleBar() {
 
       {/* Right — layout toggles + window controls */}
       <div className="flex h-full items-center gap-1 pr-1">
-        <div className="flex items-center gap-0.5 rounded-md border border-border/50 bg-background/40 p-0.5">
+        <div className="flex items-center gap-0.5 rounded-md p-0.5">
           <TitleBarButton
             active={!collapsed}
             title="Toggle sidebar"
-            onClick={() => dispatch(setSidebarCollapsed(!collapsed))}
+            onClick={() => dispatch(setSidebarCollapsed(!collapsed))} 
+            
           >
-            <PanelLeft className="h-3.5 w-3.5" />
+            <PanelLeft className="h-3.5 w-3.5"   />
           </TitleBarButton>
           <TitleBarButton
             active={responseVisible && workspaceLayout === "vertical"}
@@ -167,7 +170,7 @@ function TitleBarButton({
       onClick={onClick}
       className={cn(
         "flex h-6 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none",
-        active && "bg-accent text-foreground",
+        active && " text-foreground",
         className,
       )}
     >

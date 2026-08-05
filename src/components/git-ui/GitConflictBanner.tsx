@@ -1,10 +1,16 @@
 import { AlertTriangle } from "lucide-react";
 import { useAppSelector } from "@/hooks/redux";
-import { countConflictedPaths } from "@/git-native";
+import { countConflictedPaths, type GitFileChange } from "@/git-native";
 import { cn } from "@/utils/cn";
 
+/** Stable empty array — `?? []` in a selector allocates every action and
+ *  forces an app-wide re-render of this banner (mounted in the shell). */
+const EMPTY_CHANGES: GitFileChange[] = [];
+
 export function GitConflictBanner() {
-  const changes = useAppSelector((s) => s.git.status?.changes ?? []);
+  const changes = useAppSelector(
+    (s) => s.git.status?.changes ?? EMPTY_CHANGES,
+  );
   const count = countConflictedPaths(changes);
   if (count === 0) return null;
 

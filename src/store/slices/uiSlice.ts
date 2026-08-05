@@ -18,6 +18,8 @@ interface UiState {
   /** Bottom tools panel open state (StatusBar Console toggles this). */
   scriptConsoleVisible: boolean;
   toolsPanelTab: ToolsPanelTab;
+  /** True when the main window is in fullscreen (not the same as maximized). */
+  fullscreen: boolean;
 }
 
 const initialState: UiState = {
@@ -29,6 +31,7 @@ const initialState: UiState = {
   apiTestingOpen: false,
   scriptConsoleVisible: false,
   toolsPanelTab: "console",
+  fullscreen: false,
 };
 
 const uiSlice = createSlice({
@@ -62,6 +65,9 @@ const uiSlice = createSlice({
     setToolsPanelTab: (state, action: PayloadAction<ToolsPanelTab>) => {
       state.toolsPanelTab = action.payload;
     },
+    setFullscreen: (state, action: PayloadAction<boolean>) => {
+      state.fullscreen = action.payload;
+    },
   },
 });
 
@@ -75,5 +81,6 @@ export const {
   setScriptConsoleVisible,
   toggleScriptConsole,
   setToolsPanelTab,
+  setFullscreen,
 } = uiSlice.actions;
 export default uiSlice.reducer;

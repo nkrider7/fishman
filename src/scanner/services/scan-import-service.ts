@@ -1,5 +1,6 @@
-import { importCollection } from "@/services/dbService";
+import { importCollection, getCollections, deleteFolder } from "@/services/dbService";
 import type { ImportResult } from "@/import-export/core/types";
+import { prepareImportWithStrategy } from "@/import-export/core/conflict";
 import { buildCollectionFromEndpoints } from "../builders/collection-builder";
 import type { ApiEndpoint } from "../models/endpoint";
 import type { ScanResult } from "../models/scan-result";
@@ -11,6 +12,8 @@ export async function importScannedEndpoints(
     baseUrl?: string;
     selectedEndpointIds?: string[];
     workspaceId?: string;
+    /** Default `replace` so re-scanning the same project updates instead of duplicating. */
+    conflictStrategy?: "replace" | "duplicate" | "merge" | "skip";
   },
 ) {
   const selectedSet = options.selectedEndpointIds
@@ -23,14 +26,42 @@ export async function importScannedEndpoints(
     selectedEndpointIds: selectedSet,
   });
 
+  // Root is inserted separately — never include it (or other null-parent rows) in folders.
+  const childFolders = collection.folders.filter(
+    (folder) =>
+      folder.id !== collection.rootFolder.id && folder.parent_id != null,
+  );
+
   const importData: ImportResult = {
     rootFolder: collection.rootFolder,
-    folders: collection.folders,
+    folders: childFolders,
     requests: collection.requests.map(({ endpoint: _endpoint, ...request }) => request),
   };
 
-  return importCollection(importData, {
-    workspaceId: options.workspaceId,
+  const workspaceId = options.workspaceId;
+  const existing = await getCollections(workspaceId);
+  const strategy = options.conflictStrategy ?? "replace";
+
+  // Wipe every same-named root (not just the first) so prior duplicate imports
+  // don't leave sibling "backend-server API" folders behind.
+  if (strategy === "replace") {
+    const conflicts = existing.filter(
+      (folder) => !folder.parent_id && folder.name === importData.rootFolder.name,
+    );
+    for (const conflict of conflicts) {
+      await deleteFolder(conflict.id);
+    }
+  }
+
+  const remaining = strategy === "replace" ? await getCollections(workspaceId) : existing;
+  const prepared = prepareImportWithStrategy(importData, remaining, strategy);
+  if (!prepared) {
+    return { folders: [], requests: [] };
+  }
+
+  return importCollection(prepared.data, {
+    ...prepared.options,
+    workspaceId,
   });
 }
 

@@ -143,6 +143,19 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
 
   formatBodyRef.current = formatJsonBody;
 
+  const hasKeyValueContent = (items: { key: string }[]) =>
+    items.some((item) => item.key.trim().length > 0);
+
+  const hasParamsContent = hasKeyValueContent(draft.params);
+  const hasHeadersContent = hasKeyValueContent(draft.headers);
+  const hasBodyContent = draft.bodyType !== "none";
+  const hasAuthContent = draft.auth.type !== "none";
+  const hasScriptsContent = Boolean(
+    draft.scripts?.preRequest?.trim() ||
+      draft.scripts?.postResponse?.trim() ||
+      draft.scripts?.tests?.trim(),
+  );
+
   const handleSend = () => {
     dispatch(sendRequestThunk(tabId));
   };
@@ -185,13 +198,13 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
           </button>
         </div>
       ) : null}
-      <div className="flex items-center gap-2 border-b p-3">
+      <div className="flex items-center gap-2 border-b p-1">
         <Select
           value={draft.method}
           onValueChange={(v) => markUnsaved({ method: v as HttpMethod })}
         >
           <SelectTrigger
-            className={cn("w-[100px] font-semibold", getMethodClass(draft.method))}
+            className={cn("w-[90px] font-semibold", getMethodClass(draft.method))}
             title={methodDef?.tooltip}
           >
             <SelectValue />
@@ -308,40 +321,39 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
       )}
 
       <Tabs defaultValue="params" className="flex flex-1 flex-col overflow-hidden px-3 pb-3">
-        <TabsList className="mt-1 h-10 w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
+        <TabsList className="mt-1 h-9 w-full justify-start gap-0 rounded-none border-b border-border/80 bg-transparent p-0">
           {(
             [
-              { value: "params", label: "Params" },
-              { value: "headers", label: "Headers" },
-              { value: "body", label: "Body" },
-              { value: "auth", label: "Authorization" },
+              { value: "params", label: "Params", marked: hasParamsContent },
+              { value: "headers", label: "Headers", marked: hasHeadersContent },
+              { value: "body", label: "Body", marked: hasBodyContent },
               {
-                value: "scripts",
-                label: "Scripts",
-                badge:
-                  draft.scripts?.preRequest ||
-                  draft.scripts?.postResponse ||
-                  draft.scripts?.tests
-                    ? "*"
-                    : null,
+                value: "auth",
+                label: "Authorization",
+                marked: hasAuthContent,
               },
-              { value: "docs", label: "Docs" },
+              { value: "scripts", label: "Scripts", marked: hasScriptsContent },
+              { value: "docs", label: "Docs", marked: false },
             ] as const
           ).map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
               className={cn(
-                "relative h-10 flex-none rounded-none border-b-2 border-transparent bg-transparent px-3.5 text-[13px] font-semibold cursor-pointer",
-                "text-muted-foreground/80 shadow-none transition-colors",
+                "relative -mb-px h-9 flex-none rounded-none border-0 bg-transparent px-3.5 text-[13px] font-semibold shadow-none cursor-pointer",
+                "text-muted-foreground/80 transition-colors",
                 "hover:text-foreground",
                 "focus-visible:ring-0 focus-visible:ring-offset-0",
-                "data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:rounded-full after:bg-transparent after:content-['']",
+                "data-[state=active]:after:bg-[#49cc90]",
               )}
             >
               {tab.label}
-              {"badge" in tab && tab.badge ? (
-                <span className="ml-1 text-amber-500">{tab.badge}</span>
+              {tab.marked ? (
+                <span className="ml-1 text-amber-500" aria-hidden>
+                  *
+                </span>
               ) : null}
             </TabsTrigger>
           ))}

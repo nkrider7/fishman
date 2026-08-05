@@ -2,6 +2,8 @@ mod devtools;
 mod git_http;
 mod http;
 mod system_stats;
+mod terminal;
+mod websocket;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -56,6 +58,18 @@ pub fn run() {
             sql: include_str!("../migrations/008_folder_settings.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "websocket",
+            sql: include_str!("../migrations/009_websocket.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "hot_path_indexes",
+            sql: include_str!("../migrations/010_hot_path_indexes.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -69,11 +83,20 @@ pub fn run() {
                 .add_migrations("sqlite:fishman.db", migrations)
                 .build(),
         )
+        .manage(terminal::TerminalState::default())
+        .manage(websocket::WsState::default())
         .invoke_handler(tauri::generate_handler![
             http::execute_request,
             git_http::git_http_request,
             devtools::toggle_devtools,
             system_stats::get_system_stats,
+            terminal::terminal_create,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_kill,
+            websocket::ws_connect,
+            websocket::ws_send,
+            websocket::ws_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

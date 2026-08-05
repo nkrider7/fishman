@@ -12,6 +12,10 @@ import {
   DEFAULT_WORKSPACE_ID,
   DEFAULT_WORKSPACE_NAME,
 } from "@/workspaces/constants";
+import {
+  createDefaultWsConfig,
+  type WsConfig,
+} from "@/types/websocket";
 
 let db: Database | null = null;
 let schemaReady = false;
@@ -47,6 +51,18 @@ async function ensureRequestSchema(database: Database): Promise<void> {
   if (!(await columnExists(database, "requests", "tags_json"))) {
     await database.execute(
       `ALTER TABLE requests ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'`,
+    );
+  }
+
+  if (!(await columnExists(database, "requests", "protocol"))) {
+    await database.execute(
+      `ALTER TABLE requests ADD COLUMN protocol TEXT NOT NULL DEFAULT 'http'`,
+    );
+  }
+
+  if (!(await columnExists(database, "requests", "websocket_json"))) {
+    await database.execute(
+      `ALTER TABLE requests ADD COLUMN websocket_json TEXT NOT NULL DEFAULT ''`,
     );
   }
 
@@ -97,6 +113,14 @@ async function ensureRequestSchema(database: Database): Promise<void> {
 async function getDb(): Promise<Database> {
   if (!db) {
     db = await Database.load("sqlite:fishman.db");
+    // WAL + NORMAL sync: concurrent readers during writes, far fewer fsyncs
+    // than the default DELETE journal (critical for reorder/import loops).
+    try {
+      await db.execute("PRAGMA journal_mode=WAL;");
+      await db.execute("PRAGMA synchronous=NORMAL;");
+    } catch {
+      // Best-effort — some sandboxed environments reject journal_mode changes.
+    }
   }
   await ensureRequestSchema(db);
   return db;
@@ -335,18 +359,29 @@ export async function reorderFolder(
     sort_order: (i + 1) * 1000,
   }));
 
-  for (const update of updates) {
-    if (update.id === id) {
-      await database.execute(
-        "UPDATE collections SET parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?",
-        [update.parent_id, update.sort_order, now, update.id],
-      );
-    } else {
-      await database.execute(
-        "UPDATE collections SET sort_order = ?, updated_at = ? WHERE id = ?",
-        [update.sort_order, now, update.id],
-      );
+  await database.execute("BEGIN");
+  try {
+    for (const update of updates) {
+      if (update.id === id) {
+        await database.execute(
+          "UPDATE collections SET parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?",
+          [update.parent_id, update.sort_order, now, update.id],
+        );
+      } else {
+        await database.execute(
+          "UPDATE collections SET sort_order = ?, updated_at = ? WHERE id = ?",
+          [update.sort_order, now, update.id],
+        );
+      }
     }
+    await database.execute("COMMIT");
+  } catch (err) {
+    try {
+      await database.execute("ROLLBACK");
+    } catch {
+      // ignore rollback errors
+    }
+    throw err;
   }
 
   return updates;
@@ -381,18 +416,29 @@ export async function reorderRequest(
     sort_order: (i + 1) * 1000,
   }));
 
-  for (const update of updates) {
-    if (update.id === id) {
-      await database.execute(
-        "UPDATE requests SET collection_id = ?, sort_order = ?, updated_at = ? WHERE id = ?",
-        [update.collection_id, update.sort_order, now, update.id],
-      );
-    } else {
-      await database.execute(
-        "UPDATE requests SET sort_order = ?, updated_at = ? WHERE id = ?",
-        [update.sort_order, now, update.id],
-      );
+  await database.execute("BEGIN");
+  try {
+    for (const update of updates) {
+      if (update.id === id) {
+        await database.execute(
+          "UPDATE requests SET collection_id = ?, sort_order = ?, updated_at = ? WHERE id = ?",
+          [update.collection_id, update.sort_order, now, update.id],
+        );
+      } else {
+        await database.execute(
+          "UPDATE requests SET sort_order = ?, updated_at = ? WHERE id = ?",
+          [update.sort_order, now, update.id],
+        );
+      }
     }
+    await database.execute("COMMIT");
+  } catch (err) {
+    try {
+      await database.execute("ROLLBACK");
+    } catch {
+      // ignore rollback errors
+    }
+    throw err;
   }
 
   return updates;
@@ -519,6 +565,7 @@ export async function getRequests(
 }
 
 export function requestToRow(request: RequestDraft, collectionId?: string | null) {
+  const protocol = request.protocol === "websocket" ? "websocket" : "http";
   return {
     id: request.id,
     collection_id: collectionId ?? request.collectionId ?? null,
@@ -533,11 +580,37 @@ export function requestToRow(request: RequestDraft, collectionId?: string | null
     auth_json: JSON.stringify(request.auth),
     scripts_json: JSON.stringify(request.scripts ?? EMPTY_SCRIPTS),
     tags_json: JSON.stringify(request.tags ?? []),
+    protocol,
+    websocket_json:
+      protocol === "websocket"
+        ? JSON.stringify(request.websocket ?? createDefaultWsConfig())
+        : "",
     is_favorite: request.isFavorite ? 1 : 0,
     sort_order: Date.now(),
     created_at: Date.now(),
     updated_at: Date.now(),
   };
+}
+
+function parseWebsocketJson(raw?: string): WsConfig | undefined {
+  if (!raw || !raw.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as Partial<WsConfig>;
+    const defaults = createDefaultWsConfig();
+    return {
+      messageType: parsed.messageType ?? defaults.messageType,
+      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+      protocols: Array.isArray(parsed.protocols) ? parsed.protocols : [],
+      autoReconnect: parsed.autoReconnect ?? defaults.autoReconnect,
+      reconnectIntervalMs:
+        parsed.reconnectIntervalMs ?? defaults.reconnectIntervalMs,
+      maxReconnectAttempts:
+        parsed.maxReconnectAttempts ?? defaults.maxReconnectAttempts,
+      showSystemFrames: parsed.showSystemFrames ?? defaults.showSystemFrames,
+    };
+  } catch {
+    return createDefaultWsConfig();
+  }
 }
 
 export function rowToRequest(row: SavedRequest): RequestDraft {
@@ -546,10 +619,13 @@ export function rowToRequest(row: SavedRequest): RequestDraft {
     bodyType,
     row.body_json || "",
   );
+  const protocol =
+    row.protocol === "websocket" ? ("websocket" as const) : ("http" as const);
 
   return {
     id: row.id,
     name: row.name,
+    protocol,
     method: row.method as RequestDraft["method"],
     url: row.url,
     headers: JSON.parse(row.headers_json || "[]"),
@@ -558,6 +634,10 @@ export function rowToRequest(row: SavedRequest): RequestDraft {
     body,
     formDataFields,
     graphql,
+    websocket:
+      protocol === "websocket"
+        ? parseWebsocketJson(row.websocket_json) ?? createDefaultWsConfig()
+        : undefined,
     auth: JSON.parse(row.auth_json || '{"type":"none"}'),
     scripts: parseScriptsJson(row.scripts_json),
     tags: parseTagsJson(row.tags_json),
@@ -608,6 +688,12 @@ export async function saveRequest(
 
   const hasTags = await columnExists(database, "requests", "tags_json");
   const tagsJson = row.tags_json ?? "[]";
+  const hasProtocol = await columnExists(database, "requests", "protocol");
+  const hasWebsocketJson = await columnExists(
+    database,
+    "requests",
+    "websocket_json",
+  );
 
   if (existing.length > 0) {
     if (hasTags) {
@@ -704,6 +790,25 @@ export async function saveRequest(
         row.created_at,
         row.updated_at,
       ],
+    );
+  }
+
+  // Additive WS columns — patched separately so older SQL branches stay simple.
+  if (hasProtocol || hasWebsocketJson) {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    if (hasProtocol) {
+      sets.push("protocol = ?");
+      values.push(row.protocol ?? "http");
+    }
+    if (hasWebsocketJson) {
+      sets.push("websocket_json = ?");
+      values.push(row.websocket_json ?? "");
+    }
+    values.push(row.id);
+    await database.execute(
+      `UPDATE requests SET ${sets.join(", ")} WHERE id = ?`,
+      values,
     );
   }
 

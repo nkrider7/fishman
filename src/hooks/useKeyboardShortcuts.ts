@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/hooks/redux";
+import { useAppDispatch } from "@/hooks/redux";
+import { store } from "@/store";
 import { sendRequestThunk } from "@/store/thunks/sendRequest";
 import { openRequestTab } from "@/store/thunks/openRequestTab";
 import { saveActiveTab } from "@/store/thunks/saveActiveTab";
@@ -10,8 +11,17 @@ import { clearResponse } from "@/store/slices/responseSlice";
 import { clearScriptExecution } from "@/store/slices/scriptExecutionSlice";
 import { closeRunnerSession } from "@/store/slices/runnerSlice";
 import { closeSettingsDraft } from "@/store/slices/collectionSettingsSlice";
-import { createEmptyRequest } from "@/types/request";
+import {
+  setScriptConsoleVisible,
+  setToolsPanelTab,
+} from "@/store/slices/uiSlice";
+import { createEmptyRequest, isWebSocketRequest } from "@/types/request";
 import { tryFormatJson } from "@/utils/requestBuilder";
+import {
+  cleanupWebSocketTabThunk,
+  connectWebSocketThunk,
+  disconnectWebSocketThunk,
+} from "@/store/thunks/websocketThunks";
 
 function isFormFieldTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -19,24 +29,48 @@ function isFormFieldTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
+/**
+ * Global shortcuts. Reads live state via store.getState() so the capture
+ * listener is registered once — previously it tore down/rebound on every
+ * draft keystroke because `draft` was in the effect deps.
+ */
 export function useKeyboardShortcuts() {
   const dispatch = useAppDispatch();
-  const tabs = useAppSelector((s) => s.tabs.tabs);
-  const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
-  const activeTab = useAppSelector((s) =>
-    s.tabs.tabs.find((t) => t.id === s.tabs.activeTabId),
-  );
-  const draft = useAppSelector((s) =>
-    activeTabId ? s.request.drafts[activeTabId] : null,
-  );
-  const settingsDirty = useAppSelector(
-    (s) => s.collectionSettings.draft?.dirty ?? false,
-  );
-  const settingsTabId = useAppSelector((s) => s.collectionSettings.draft?.tabId);
-  const runnerTabId = useAppSelector((s) => s.runner.tabId);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const state = store.getState();
+      const tabs = state.tabs.tabs;
+      const activeTabId = state.tabs.activeTabId;
+      const activeTab = tabs.find((t) => t.id === activeTabId);
+      const draft = activeTabId ? state.request.drafts[activeTabId] : null;
+      const wsStatus = activeTabId
+        ? state.websocket.byTab[activeTabId]?.status
+        : undefined;
+      const settingsDirty = state.collectionSettings.draft?.dirty ?? false;
+      const settingsTabId = state.collectionSettings.draft?.tabId;
+      const runnerTabId = state.runner.tabId;
+      const scriptConsoleVisible = state.ui.scriptConsoleVisible;
+      const toolsPanelTab = state.ui.toolsPanelTab;
+
+      // Ctrl+` / Cmd+` — toggle integrated terminal (VS Code-style).
+      if (
+        e.key === "`" &&
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (scriptConsoleVisible && toolsPanelTab === "terminal") {
+          dispatch(setScriptConsoleVisible(false));
+        } else {
+          dispatch(setToolsPanelTab("terminal"));
+          dispatch(setScriptConsoleVisible(true));
+        }
+        return;
+      }
+
       // Shift+Alt+F — beautify JSON body
       if (
         e.altKey &&
@@ -47,7 +81,8 @@ export function useKeyboardShortcuts() {
         activeTabId &&
         draft &&
         (!activeTab?.kind || activeTab.kind === "request") &&
-        draft.bodyType === "json"
+        draft.bodyType === "json" &&
+        !isWebSocketRequest(draft)
       ) {
         e.preventDefault();
         e.stopPropagation();
@@ -123,6 +158,14 @@ export function useKeyboardShortcuts() {
       if (e.key === "Enter" && activeTabId) {
         e.preventDefault();
         e.stopPropagation();
+        if (draft && isWebSocketRequest(draft)) {
+          if (wsStatus === "open" || wsStatus === "connecting") {
+            void dispatch(disconnectWebSocketThunk(activeTabId));
+          } else {
+            void dispatch(connectWebSocketThunk(activeTabId));
+          }
+          return;
+        }
         dispatch(sendRequestThunk(activeTabId));
         return;
       }
@@ -138,6 +181,7 @@ export function useKeyboardShortcuts() {
         if (isFormFieldTarget(e.target)) return;
         e.preventDefault();
         e.stopPropagation();
+        void dispatch(cleanupWebSocketTabThunk(activeTabId));
         dispatch(closeTab(activeTabId));
         dispatch(removeDraft(activeTabId));
         dispatch(clearResponse(activeTabId));
@@ -157,14 +201,5 @@ export function useKeyboardShortcuts() {
     window.addEventListener("keydown", handler, { capture: true });
     return () =>
       window.removeEventListener("keydown", handler, { capture: true });
-  }, [
-    dispatch,
-    tabs,
-    activeTabId,
-    draft,
-    activeTab?.kind,
-    settingsDirty,
-    settingsTabId,
-    runnerTabId,
-  ]);
+  }, [dispatch]);
 }

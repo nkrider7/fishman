@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, GitBranch, Play, Save } from "lucide-react";
+import { Copy, GitBranch, Play, Save, Share2 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { KeyValueEditor } from "@/components/common/KeyValueEditor";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { ScriptEditor } from "@/components/request/ScriptEditor";
+import { ShareCollectionDialog } from "@/components/import-export/ShareCollectionDialog";
 import {
   patchSettingsDraft,
   setSettingsSubTab,
@@ -109,6 +110,7 @@ export function CollectionSettingsView() {
   const isFilesystem = sourceMode === "filesystem";
   const hasGit = Boolean(gitStatus?.enabled);
   const isRootCollection = !folder?.parent_id;
+  const [shareOpen, setShareOpen] = useState(false);
 
   const save = () => {
     void dispatch(saveFolderSettings());
@@ -119,6 +121,7 @@ export function CollectionSettingsView() {
   };
 
   return (
+    <>
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
         <div className="min-w-0">
@@ -132,6 +135,17 @@ export function CollectionSettingsView() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {isRootCollection ? (
+            <Button
+              size="sm"
+              variant="outline"
+              title="Share or export this collection"
+              onClick={() => setShareOpen(true)}
+            >
+              <Share2 className="mr-1.5 h-3.5 w-3.5" />
+              Share
+            </Button>
+          ) : null}
           {isRootCollection ? (
             <Button
               size="sm"
@@ -444,6 +458,15 @@ export function CollectionSettingsView() {
         )}
       </div>
     </div>
+    {isRootCollection ? (
+      <ShareCollectionDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        collectionId={draft.folderId}
+        defaultTab="export"
+      />
+    ) : null}
+    </>
   );
 }
 

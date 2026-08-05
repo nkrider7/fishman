@@ -3,3 +3,4 @@ export { ConsoleTab } from "./ConsoleTab";
 export { NetworkTab } from "./NetworkTab";
 export { PerformanceTab } from "./PerformanceTab";
 export { TerminalTab } from "./TerminalTab";
+export { XtermSession } from "./XtermSession";

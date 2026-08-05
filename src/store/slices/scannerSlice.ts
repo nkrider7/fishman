@@ -128,7 +128,16 @@ export const importScanResult = createAsyncThunk(
       baseUrl,
       selectedEndpointIds,
       workspaceId: state.workspaces.activeWorkspaceId,
+      // Re-scan of the same project name replaces the existing root collection.
+      conflictStrategy: "replace",
     });
+  },
+  {
+    // Ignore duplicate Import clicks while an import is already running.
+    condition: (_arg, { getState }) => {
+      const state = getState() as import("../index").RootState;
+      return state.scanner.step !== "importing";
+    },
   },
 );
 

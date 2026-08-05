@@ -11,14 +11,23 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef, type MouseEvent, type MutableRefObject } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
+  Download,
+  FilePlus2,
+  FileText,
   Folder,
+  FolderOpen,
+  FolderPlus,
   GripVertical,
+  Pencil,
   Play,
+  Radio,
   Star,
+  Trash2,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
@@ -39,25 +48,29 @@ import { openCollectionRunner } from "@/store/thunks/runnerThunks";
 import { openCollectionSettings } from "@/store/thunks/collectionSettingsThunks";
 import type { CollectionFolder, SavedRequest } from "@/types/collection";
 import { buildFolderChain, resolveNearestPresets } from "@/collections/inheritance";
+import { AutoDetectApisCta } from "@/components/collections/AutoDetectApisCta";
 import { CollectionHeader } from "@/components/collections/CollectionHeader";
 import { CollectionSearchResults } from "@/components/collections/CollectionSearchResults";
 import { ImportDialog } from "@/components/import-export/ImportDialog";
 import { ExportDialog } from "@/components/import-export/ExportDialog";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { createEmptyRequest } from "@/types/request";
+import { createEmptyRequest, createWebSocketRequest } from "@/types/request";
 import { getMethodClass } from "@/utils/requestBuilder";
 import { matchesMethodSearch, parseMethodSearch } from "@/http-methods";
 import { cn } from "@/utils/cn";
 import { findRootCollectionId } from "@/utils/collectionUtils";
 
 type DragItem = { type: "folder" | "request"; id: string };
+type TreeContextTarget =
+  | { kind: "folder"; folder: CollectionFolder }
+  | { kind: "request"; request: SavedRequest };
 type DropData =
   | { type: "root"; id: null }
   | { type: "nest"; folderId: string }
@@ -260,7 +273,7 @@ function TreeScrollRoot({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       className={cn(
-        "min-h-full flex-1 overflow-y-auto pb-24 pt-1 pr-1",
+        "min-h-0 flex-1 overflow-y-auto pb-2 pt-1 pr-1",
         isDragging && "rounded-md border border-dashed border-transparent",
         isOver && "border-primary/40 bg-primary/5",
       )}
@@ -314,6 +327,16 @@ export function CollectionTree() {
     content: string;
     filename?: string;
   } | null>(null);
+  const menuApiRef = useRef<TreeContextMenuApi | null>(null);
+
+  const openTreeContextMenu = useCallback(
+    (event: MouseEvent, target: TreeContextTarget) => {
+      event.preventDefault();
+      event.stopPropagation();
+      menuApiRef.current?.open(event.clientX, event.clientY, target);
+    },
+    [],
+  );
 
   const selectedCollectionId = useMemo(() => {
     if (!selectedFolderId) return null;
@@ -375,6 +398,45 @@ export function CollectionTree() {
     return roots;
   }, [folders, requests, searchQuery]);
 
+  // O(n) indexes — renderFolder used to filter+sort the full arrays per node
+  // (O(folders × (folders+requests))), which froze the UI on every right-click
+  // when context-menu state lived in this parent.
+  const childFoldersByParentId = useMemo(() => {
+    const map = new Map<string | null, CollectionFolder[]>();
+    for (const folder of folders) {
+      const key = folder.parent_id;
+      const list = map.get(key);
+      if (list) list.push(folder);
+      else map.set(key, [folder]);
+    }
+    for (const list of map.values()) list.sort(bySortOrder);
+    return map;
+  }, [folders]);
+
+  const childRequestsByCollectionId = useMemo(() => {
+    const map = new Map<string | null, SavedRequest[]>();
+    const querying = Boolean(searchQuery.trim());
+    for (const request of requests) {
+      if (
+        querying &&
+        !matchesMethodSearch(
+          request.method,
+          request.name,
+          request.url,
+          searchQuery,
+        )
+      ) {
+        continue;
+      }
+      const key = request.collection_id;
+      const list = map.get(key);
+      if (list) list.push(request);
+      else map.set(key, [request]);
+    }
+    for (const list of map.values()) list.sort(bySortOrder);
+    return map;
+  }, [requests, searchQuery]);
+
   const openSavedRequest = (request: SavedRequest) => {
     dispatch(openRequestTab({ savedRequest: request }));
   };
@@ -424,6 +486,30 @@ export function CollectionTree() {
       );
     } catch (error) {
       console.error("[fishman] failed to create request", error);
+      dispatch(openRequestTab({ request: draft, forceNew: true }));
+    }
+  };
+
+  const handleNewWebSocketRequest = async (collectionId?: string | null) => {
+    const draft = createWebSocketRequest("New WebSocket");
+    if (collectionId) {
+      draft.collectionId = collectionId;
+      setExpanded((prev) => ({ ...prev, [collectionId]: true }));
+      if (resolveNearestPresets(buildFolderChain(collectionId, folders)).hasAuth) {
+        draft.auth = { type: "inherit" };
+      }
+    }
+    dispatch(setSelectedFolder(collectionId ?? null));
+
+    try {
+      const saved = await dispatch(
+        saveRequestToDb({ request: draft, collectionId }),
+      ).unwrap();
+      await dispatch(
+        openRequestTab({ savedRequest: saved, forceNew: true }),
+      );
+    } catch (error) {
+      console.error("[fishman] failed to create WebSocket request", error);
       dispatch(openRequestTab({ request: draft, forceNew: true }));
     }
   };
@@ -566,21 +652,11 @@ export function CollectionTree() {
   };
 
   const renderFolder = (folder: CollectionFolder, guides: boolean[] = []) => {
-    const childFolders = folders
-      .filter((f) => f.parent_id === folder.id)
-      .sort(bySortOrder);
-    const childRequests = requests
-      .filter((r) => r.collection_id === folder.id)
-      .filter(
-        (r) =>
-          !searchQuery.trim() ||
-          matchesMethodSearch(r.method, r.name, r.url, searchQuery),
-      )
-      .sort(bySortOrder);
+    const childFolders = childFoldersByParentId.get(folder.id) ?? [];
+    const childRequests = childRequestsByCollectionId.get(folder.id) ?? [];
     const isExpanded = isFolderExpanded(folder.id);
     const isRenaming =
       renaming?.type === "folder" && renaming.id === folder.id;
-    const rootId = findRootCollectionId(folder.id, folders);
     const childEntries = [
       ...childFolders.map((item) => ({ type: "folder" as const, item })),
       ...childRequests.map((item) => ({ type: "request" as const, item })),
@@ -588,121 +664,81 @@ export function CollectionTree() {
 
     return (
       <div key={folder.id}>
-        <ContextMenu>
-          <ContextMenuTrigger className="block w-full">
-            <DroppableTreeRow
-              itemType="folder"
-              id={folder.id}
-              parentId={folder.parent_id}
+        <DroppableTreeRow
+          itemType="folder"
+          id={folder.id}
+          parentId={folder.parent_id}
+        >
+          <DraggableTreeItem
+            id={folder.id}
+            type="folder"
+            guides={guides}
+            className={cn(
+              "rounded-none py-0.5 pr-1 text-sm",
+              selectedFolderId === folder.id && "bg-accent",
+            )}
+          >
+            <div
+              className="flex min-w-0 flex-1 items-center gap-1"
+              onContextMenu={(e) =>
+                openTreeContextMenu(e, { kind: "folder", folder })
+              }
             >
-              <DraggableTreeItem
-                id={folder.id}
-                type="folder"
-                guides={guides}
-                className={cn(
-                  "rounded-none py-0.5 pr-1 text-sm",
-                  selectedFolderId === folder.id && "bg-accent",
-                )}
-              >
-                <button
-                  type="button"
-                  className="shrink-0 rounded p-0.5 hover:bg-accent/80"
-                  aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand(folder.id);
-                  }}
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </button>
-                {isRenaming ? (
-                  <Input
-                    className="h-6 flex-1"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onBlur={commitRename}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename();
-                      if (e.key === "Escape") setRenaming(null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <DroppableFolderNest
-                    folderId={folder.id}
-                    className="min-w-0 flex-1"
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full min-w-0 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
-                      onClick={() => selectFolder(folder.id)}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        startRename("folder", folder.id, folder.name);
-                      }}
-                    >
-                      <Folder className="h-4 w-4 shrink-0 text-amber-500" />
-                      <span className="truncate">{folder.name}</span>
-                    </button>
-                  </DroppableFolderNest>
-                )}
-              </DraggableTreeItem>
-            </DroppableTreeRow>
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem onClick={() => selectFolder(folder.id)}>
-              Open
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleNewRequest(folder.id)}>
-              Add request
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleNewFolder(folder.id)}>
-              Add folder
-            </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => {
-                const rootIdForRun =
-                  findRootCollectionId(folder.id, folders) ?? folder.id;
-                void dispatch(
-                  openCollectionRunner({
-                    collectionId: rootIdForRun,
-                    folderId: folder.parent_id ? folder.id : null,
-                  }),
-                );
-              }}
-            >
-              <Play className="mr-2 h-3.5 w-3.5" />
-              Run
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={() => startRename("folder", folder.id, folder.name)}
-            >
-              Rename
-            </ContextMenuItem>
-            {rootId && (
-              <ContextMenuItem
-                onClick={() => {
-                  setExportCollectionId(rootId);
-                  setExportOpen(true);
+              <button
+                type="button"
+                className="shrink-0 rounded p-0.5 hover:bg-accent/80"
+                aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand(folder.id);
                 }}
               >
-                Export collection
-              </ContextMenuItem>
-            )}
-            <ContextMenuItem
-              onClick={() => dispatch(deleteFolder(folder.id))}
-            >
-              Delete
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isRenaming ? (
+                <Input
+                  className="h-6 flex-1"
+                  value={renameValue}
+                  autoFocus
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setRenaming(null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <DroppableFolderNest
+                  folderId={folder.id}
+                  className="min-w-0 flex-1"
+                >
+                  <button
+                    type="button"
+                    className="flex w-full min-w-0 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
+                    onClick={() => selectFolder(folder.id)}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      startRename("folder", folder.id, folder.name);
+                    }}
+                  >
+                    {isExpanded ? (
+                      <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
+                    ) : (
+                      <Folder className="h-4 w-4 shrink-0 text-amber-500" />
+                    )}
+                    <span className="truncate">{folder.name}</span>
+                  </button>
+                </DroppableFolderNest>
+              )}
+            </div>
+          </DraggableTreeItem>
+        </DroppableTreeRow>
 
         {isExpanded &&
           childEntries.map((entry, index) => {
@@ -721,97 +757,74 @@ export function CollectionTree() {
       renaming?.type === "request" && renaming.id === request.id;
 
     return (
-      <ContextMenu key={request.id}>
-        <ContextMenuTrigger className="block w-full">
-          <DroppableTreeRow
-            itemType="request"
-            id={request.id}
-            parentId={request.collection_id}
-          >
-            <DraggableTreeItem
-            id={request.id}
-            type="request"
-            guides={guides}
-            className={cn(
-              "rounded-none py-0.5 pr-1 text-sm",
-              activeRequestId === request.id && "bg-accent",
-            )}
-          >
-            {isRenaming ? (
-              <Input
-                className="h-6 flex-1"
-                value={renameValue}
-                autoFocus
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={commitRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitRename();
-                  if (e.key === "Escape") setRenaming(null);
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
-                onClick={() => openSavedRequest(request)}
-                onDoubleClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  startRename("request", request.id, request.name);
-                }}
-              >
-                <span className="w-4 shrink-0" aria-hidden />
-                <span
-                  className={cn(
-                    "shrink-0 font-semibold text-xs pt-0.5",
-                    getMethodClass(request.method),
-                  )}
-                >
-                  {request.method}
-                </span>
-                <span className="truncate">{request.name}</span>
-                {request.is_favorite === 1 && (
-                  <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+      <DroppableTreeRow
+        key={request.id}
+        itemType="request"
+        id={request.id}
+        parentId={request.collection_id}
+      >
+        <DraggableTreeItem
+          id={request.id}
+          type="request"
+          guides={guides}
+          className={cn(
+            "rounded-none py-0.5 pr-1 text-sm",
+            activeRequestId === request.id && "bg-accent",
+          )}
+        >
+          {isRenaming ? (
+            <Input
+              className="h-6 flex-1"
+              value={renameValue}
+              autoFocus
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setRenaming(null);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
+              onClick={() => openSavedRequest(request)}
+              onContextMenu={(e) =>
+                openTreeContextMenu(e, { kind: "request", request })
+              }
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startRename("request", request.id, request.name);
+              }}
+            >
+              <span className="w-4 shrink-0" aria-hidden />
+              <span
+                className={cn(
+                  "shrink-0 font-semibold text-xs pt-0.5",
+                  request.protocol === "websocket"
+                    ? "text-violet-600 dark:text-violet-400"
+                    : getMethodClass(request.method),
                 )}
-              </button>
-            )}
-          </DraggableTreeItem>
-          </DroppableTreeRow>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem onClick={() => openSavedRequest(request)}>
-            Open
-          </ContextMenuItem>
-          <ContextMenuItem
-            onClick={() => startRename("request", request.id, request.name)}
-          >
-            Rename
-          </ContextMenuItem>
-          <ContextMenuItem
-            onClick={() => dispatch(duplicateRequestInDb(request.id))}
-          >
-            Duplicate
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem
-            onClick={() => dispatch(deleteRequestFromDb(request.id))}
-          >
-            Delete
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+              >
+                {request.protocol === "websocket" ? "WS" : request.method}
+              </span>
+              <span className="truncate">{request.name}</span>
+              {request.is_favorite === 1 && (
+                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+              )}
+            </button>
+          )}
+        </DraggableTreeItem>
+      </DroppableTreeRow>
     );
   };
 
-  const rootRequests = requests
-    .filter((r) => !r.collection_id)
-    .filter(
-      (r) =>
-        !searchQuery.trim() ||
-        matchesMethodSearch(r.method, r.name, r.url, searchQuery),
-    )
-    .sort(bySortOrder);
+  const rootRequests = useMemo(
+    () => childRequestsByCollectionId.get(null) ?? [],
+    [childRequestsByCollectionId],
+  );
 
   const rootEntries = useMemo(
     () => [
@@ -874,6 +887,8 @@ export function CollectionTree() {
       </DndContext>
       )}
 
+      <AutoDetectApisCta />
+
       <ImportDialog
         open={importOpen}
         onOpenChange={(open) => {
@@ -889,6 +904,218 @@ export function CollectionTree() {
         onOpenChange={setExportOpen}
         collectionId={exportCollectionId ?? selectedCollectionId}
       />
+
+      <TreeContextMenu
+        apiRef={menuApiRef}
+        folders={folders}
+        onSelectFolder={selectFolder}
+        onNewRequest={handleNewRequest}
+        onNewWebSocketRequest={handleNewWebSocketRequest}
+        onNewFolder={handleNewFolder}
+        onStartRename={startRename}
+        onOpenRequest={openSavedRequest}
+        onExportCollection={(rootId) => {
+          setExportCollectionId(rootId);
+          setExportOpen(true);
+        }}
+      />
     </div>
+  );
+}
+
+type TreeContextMenuApi = {
+  open: (x: number, y: number, target: TreeContextTarget) => void;
+};
+
+function TreeContextMenu({
+  apiRef,
+  folders,
+  onSelectFolder,
+  onNewRequest,
+  onNewWebSocketRequest,
+  onNewFolder,
+  onStartRename,
+  onOpenRequest,
+  onExportCollection,
+}: {
+  apiRef: MutableRefObject<TreeContextMenuApi | null>;
+  folders: CollectionFolder[];
+  onSelectFolder: (folderId: string) => void;
+  onNewRequest: (collectionId?: string | null) => void;
+  onNewWebSocketRequest: (collectionId?: string | null) => void;
+  onNewFolder: (parentId?: string | null) => void;
+  onStartRename: (
+    type: "folder" | "request",
+    id: string,
+    name: string,
+  ) => void;
+  onOpenRequest: (request: SavedRequest) => void;
+  onExportCollection: (rootId: string) => void;
+}) {
+  const dispatch = useAppDispatch();
+  const [treeMenu, setTreeMenu] = useState<{
+    open: boolean;
+    x: number;
+    y: number;
+    target: TreeContextTarget | null;
+  }>({ open: false, x: 0, y: 0, target: null });
+
+  useEffect(() => {
+    apiRef.current = {
+      open: (x, y, target) => setTreeMenu({ open: true, x, y, target }),
+    };
+    return () => {
+      apiRef.current = null;
+    };
+  }, [apiRef]);
+
+  const folderMenuTarget =
+    treeMenu.target?.kind === "folder" ? treeMenu.target.folder : null;
+  const requestMenuTarget =
+    treeMenu.target?.kind === "request" ? treeMenu.target.request : null;
+  const folderMenuRootId = folderMenuTarget
+    ? findRootCollectionId(folderMenuTarget.id, folders)
+    : null;
+
+  return (
+      <DropdownMenu
+        open={treeMenu.open}
+        onOpenChange={(open) =>
+          setTreeMenu((prev) => ({
+            ...prev,
+            open,
+            target: open ? prev.target : null,
+          }))
+        }
+      >
+        <DropdownMenuTrigger asChild>
+          <span
+            aria-hidden
+            className="pointer-events-none fixed h-0 w-0 overflow-hidden opacity-0"
+            style={{ left: treeMenu.x, top: treeMenu.y }}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-52">
+          {folderMenuTarget ? (
+            <>
+              <DropdownMenuItem
+                onClick={() => onSelectFolder(folderMenuTarget.id)}
+              >
+                <FolderOpen className="text-muted-foreground" />
+                Open
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onNewRequest(folderMenuTarget.id)}
+              >
+                <FilePlus2 className="text-muted-foreground" />
+                Add request
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onNewWebSocketRequest(folderMenuTarget.id)}
+              >
+                <Radio className="text-violet-500" />
+                Add WebSocket
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onNewFolder(folderMenuTarget.id)}
+              >
+                <FolderPlus className="text-muted-foreground" />
+                Add folder
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  const rootIdForRun =
+                    findRootCollectionId(folderMenuTarget.id, folders) ??
+                    folderMenuTarget.id;
+                  void dispatch(
+                    openCollectionRunner({
+                      collectionId: rootIdForRun,
+                      folderId: folderMenuTarget.parent_id
+                        ? folderMenuTarget.id
+                        : null,
+                    }),
+                  );
+                }}
+              >
+                <Play className="text-emerald-500" />
+                Run collection
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  onStartRename(
+                    "folder",
+                    folderMenuTarget.id,
+                    folderMenuTarget.name,
+                  )
+                }
+              >
+                <Pencil className="text-muted-foreground" />
+                Rename
+              </DropdownMenuItem>
+              {folderMenuRootId ? (
+                <DropdownMenuItem
+                  onClick={() => onExportCollection(folderMenuRootId)}
+                >
+                  <Download className="text-muted-foreground" />
+                  Export collection
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => dispatch(deleteFolder(folderMenuTarget.id))}
+              >
+                <Trash2 />
+                Delete
+              </DropdownMenuItem>
+            </>
+          ) : requestMenuTarget ? (
+            <>
+              <DropdownMenuItem
+                onClick={() => onOpenRequest(requestMenuTarget)}
+              >
+                {requestMenuTarget.protocol === "websocket" ? (
+                  <Radio className="text-violet-500" />
+                ) : (
+                  <FileText className="text-muted-foreground" />
+                )}
+                Open
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  onStartRename(
+                    "request",
+                    requestMenuTarget.id,
+                    requestMenuTarget.name,
+                  )
+                }
+              >
+                <Pencil className="text-muted-foreground" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  dispatch(duplicateRequestInDb(requestMenuTarget.id))
+                }
+              >
+                <Copy className="text-muted-foreground" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() =>
+                  dispatch(deleteRequestFromDb(requestMenuTarget.id))
+                }
+              >
+                <Trash2 />
+                Delete
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
   );
 }
