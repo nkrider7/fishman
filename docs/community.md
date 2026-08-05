@@ -65,6 +65,10 @@ prefer GitHub Discussions for async conversation that stays searchable.
 
 ## Funding
 
-Optional support links can be configured in `.github/FUNDING.yml` (GitHub
-Sponsors, Open Collective, Buy Me a Coffee). Sponsorship never gates features —
-Fishman remains open source.
+If you want to support Fishman development:
+
+[![Ko-fi](https://storage.ko-fi.com/cdn/kofi3.png?v=6)](https://ko-fi.com/B6E223SE98)
+
+Also configured in [`.github/FUNDING.yml`](../.github/FUNDING.yml) so GitHub shows
+a **Sponsor** button. Sponsorship never gates features — Fishman remains open
+source.

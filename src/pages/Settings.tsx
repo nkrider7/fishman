@@ -1,3 +1,4 @@
+import { Coffee, ExternalLink, FolderGit2, Scale } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
   persistSettingsPatch,
@@ -8,6 +9,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -16,7 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Theme, WorkspaceLayout } from "@/types/settings";
+import { FISHMAN_LINKS, openExternalUrl } from "@/utils/external-links";
 import { cn } from "@/utils/cn";
+import packageJson from "../../package.json";
 
 export function SettingsPage() {
   const dispatch = useAppDispatch();
@@ -109,6 +113,80 @@ export function SettingsPage() {
               save({ timeoutMs: val });
             }}
           />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-4 text-sm font-semibold">About</h2>
+        <div className="space-y-3 rounded-md border p-3">
+          <div>
+            <div className="text-sm font-medium">Fishman</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Version {packageJson.version} · Native Git-first API client
+            </p>
+          </div>
+
+          <dl className="space-y-1.5 text-xs">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Author</dt>
+              <dd className="font-medium">Narendra Nishad</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">License</dt>
+              <dd className="font-medium">Apache License 2.0</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Copyright</dt>
+              <dd className="font-medium">© 2026 Narendra Nishad</dd>
+            </div>
+          </dl>
+
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Open-source under Apache-2.0. The Fishman name and logo are
+            trademarks of Narendra Nishad.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 justify-between text-xs"
+              onClick={() => void openExternalUrl(FISHMAN_LINKS.repo)}
+            >
+              <span className="flex items-center gap-2">
+                <FolderGit2 className="h-3.5 w-3.5 opacity-70" />
+                GitHub repository
+              </span>
+              <ExternalLink className="h-3 w-3 opacity-50" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 justify-between text-xs"
+              onClick={() => void openExternalUrl(FISHMAN_LINKS.license)}
+            >
+              <span className="flex items-center gap-2">
+                <Scale className="h-3.5 w-3.5 opacity-70" />
+                View license
+              </span>
+              <ExternalLink className="h-3 w-3 opacity-50" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 justify-between text-xs"
+              onClick={() => void openExternalUrl(FISHMAN_LINKS.koFi)}
+            >
+              <span className="flex items-center gap-2">
+                <Coffee className="h-3.5 w-3.5 opacity-70" />
+                Support on Ko-fi
+              </span>
+              <ExternalLink className="h-3 w-3 opacity-50" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

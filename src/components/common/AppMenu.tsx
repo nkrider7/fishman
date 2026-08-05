@@ -1,15 +1,21 @@
 import { useState, type ReactNode } from "react";
 import {
   CircleHelp,
+  Coffee,
+  ExternalLink,
+  FolderGit2,
   Info,
   Maximize,
   Menu,
   Minimize2,
   RotateCcw,
+  Scale,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/common/AppIcon";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAppZoom } from "@/hooks/useAppZoom";
 import { useFullscreen } from "@/hooks/useFullscreen";
+import { FISHMAN_LINKS, openExternalUrl } from "@/utils/external-links";
 import { formatZoomPercent, modKeyLabel } from "@/utils/zoom";
 import { cn } from "@/utils/cn";
 import packageJson from "../../../package.json";
@@ -183,19 +190,88 @@ function AboutDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader className="items-center text-center sm:items-center sm:text-center">
           <AppIcon size="md" className="mb-2" />
           <DialogTitle>Fishman</DialogTitle>
           <DialogDescription>
-            API client for building, testing, and documenting requests.
+            Native, Git-first API client for building, testing, and documenting
+            requests. Local-first — your data stays on your machine.
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-center text-xs text-muted-foreground">
-          Version {packageJson.version}
+
+        <div className="space-y-3 text-sm">
+          <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-center text-xs text-muted-foreground">
+            Version {packageJson.version}
+          </div>
+
+          <dl className="space-y-2 rounded-md border border-border/60 px-3 py-2.5 text-xs">
+            <AboutRow label="Author" value="Narendra Nishad" />
+            <AboutRow label="License" value="Apache License 2.0" />
+            <AboutRow label="Copyright" value="© 2026 Narendra Nishad" />
+          </dl>
+
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Source code is licensed under Apache-2.0. The Fishman name and logo
+            are trademarks of Narendra Nishad and are not covered by the code
+            license.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            <AboutLinkButton
+              icon={FolderGit2}
+              label="GitHub repository"
+              onClick={() => void openExternalUrl(FISHMAN_LINKS.repo)}
+            />
+            <AboutLinkButton
+              icon={Scale}
+              label="View license"
+              onClick={() => void openExternalUrl(FISHMAN_LINKS.license)}
+            />
+            <AboutLinkButton
+              icon={Coffee}
+              label="Support on Ko-fi"
+              onClick={() => void openExternalUrl(FISHMAN_LINKS.koFi)}
+            />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AboutRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="text-right font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function AboutLinkButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-8 w-full justify-between text-xs"
+      onClick={onClick}
+    >
+      <span className="flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5 opacity-70" />
+        {label}
+      </span>
+      <ExternalLink className="h-3 w-3 opacity-50" />
+    </Button>
   );
 }
 

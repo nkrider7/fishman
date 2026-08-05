@@ -20,6 +20,20 @@ No Electron bloat. No cloud lock-in. Your requests, history, and secrets stay on
 
 ---
 
+## Support
+
+If Fishman helps your workflow, you can support development on Ko-fi:
+
+<div align="center">
+  <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
+    <img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi3.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" />
+  </a>
+</div>
+
+Sponsorship never gates features — Fishman stays open source and free to use.
+
+---
+
 ## Features
 
 | Area | What you get |
@@ -271,6 +285,7 @@ See [docs/branding.md](docs/branding.md).
 |---------|---------|
 | [GitHub Issues](https://github.com/nkrider7/fishman/issues) | Bugs and actionable tasks |
 | [GitHub Discussions](https://github.com/nkrider7/fishman/discussions) | Ideas, Q&A, show and tell |
+| [Ko-fi](https://ko-fi.com/B6E223SE98) | Support development |
 | Discord | Coming soon — placeholder in [docs/community.md](docs/community.md) |
 
 Suggested Discussion categories once enabled:
