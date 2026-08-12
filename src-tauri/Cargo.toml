@@ -45,7 +45,7 @@ tauri-plugin-fs = { version = "2.5.1", features = ["watch"] }
 tauri-plugin-dialog = "2.7.1"
 mime_guess = "2.0.5"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
-portable-pty = "0.8"
+portable-pty = "0.9"
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 futures-util = "0.3"
 
