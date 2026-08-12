@@ -9,6 +9,7 @@
 | [branding.md](branding.md) | Logo, colors, trademark |
 | [community.md](community.md) | Discussions, Discord placeholder, norms |
 | [git-native.md](git-native.md) | Git-first collections format |
+| [url-replace.md](url-replace.md) | Bulk Find & Replace for request base URLs |
 | [release.md](release.md) | Release process details |
 | [release-checklist.md](release-checklist.md) | Ship checklist |
 

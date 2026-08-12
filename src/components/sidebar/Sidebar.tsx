@@ -5,12 +5,18 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
+  Search,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
-import { setEnvironmentManagerOpen, setSidebarView, type SidebarView } from "@/store/slices/uiSlice";
+import {
+  setEnvironmentManagerOpen,
+  setSidebarView,
+  type SidebarView,
+} from "@/store/slices/uiSlice";
 import { setSidebarCollapsed } from "@/store/slices/settingsSlice";
 import { CollectionTree } from "@/components/collections/CollectionTree";
 import { HistoryList } from "@/components/sidebar/HistoryList";
+import { UrlReplaceSidebarPanel } from "@/components/url-replace/UrlReplaceSidebarPanel";
 import { SettingsPage } from "@/pages/Settings";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/cn";
@@ -23,6 +29,7 @@ const NAV_ITEMS: {
 }[] = [
   { id: "collections", label: "Collections", icon: FolderTree },
   { id: "history", label: "History", icon: History },
+  { id: "url-replace", label: "Search", icon: Search },
   { id: "environments", label: "Environments", icon: Globe, opensModal: true },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -110,6 +117,7 @@ export function Sidebar() {
       <div className="min-h-0 flex-1 overflow-hidden">
         {view === "collections" && <CollectionTree />}
         {view === "history" && <HistoryList />}
+        {view === "url-replace" && <UrlReplaceSidebarPanel />}
         {view === "settings" && <SettingsPage />}
       </div>
     </div>

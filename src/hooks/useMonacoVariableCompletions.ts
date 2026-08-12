@@ -14,6 +14,7 @@ import {
   setSharedMonacoVariableCatalog,
   type VariableSuggestion,
 } from "@/variables/suggestions";
+import { registerMonacoEditor } from "@/monaco/editor-registry";
 
 /**
  * Keeps the Monaco completion catalog in sync with env / folder variables,
@@ -23,6 +24,7 @@ export function useMonacoVariableCompletions(collectionId?: string | null) {
   const { variableInfo } = useVariableContext(collectionId);
   const folders = useAppSelector((s) => s.collections.folders);
   const triggerDisposablesRef = useRef<IDisposable[]>([]);
+  const editorUnsubRef = useRef<Array<() => void>>([]);
 
   const folderVariables = useMemo(() => {
     if (!collectionId) return {};
@@ -46,6 +48,8 @@ export function useMonacoVariableCompletions(collectionId?: string | null) {
     return () => {
       for (const d of triggerDisposablesRef.current) d.dispose();
       triggerDisposablesRef.current = [];
+      for (const unsub of editorUnsubRef.current) unsub();
+      editorUnsubRef.current = [];
     };
   }, []);
 
@@ -64,6 +68,7 @@ export function useMonacoVariableCompletions(collectionId?: string | null) {
         attachCompletions(monaco, languages);
         const trigger = bindMonacoVariableSuggestTrigger(editor);
         triggerDisposablesRef.current.push(trigger);
+        editorUnsubRef.current.push(registerMonacoEditor(editor));
         existing?.(editor, monaco);
       };
     },

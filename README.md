@@ -51,6 +51,7 @@ Sponsorship never gates features — Fishman stays open source and free to use.
 - Multi-tab workspace with pin, unsaved indicators, and keyboard shortcuts
 - Environments with `{{variable}}` substitution and live scope hints
 - Import / export Postman and Fishman formats
+- **Find & Replace URLs** — sidebar panel (VS Code–style); select text + `Ctrl/Cmd+Shift+H`
 - Workspaces, cookies manager, history, themes (light / dark / system)
 - Plugin-oriented scanner and import-export layers
 

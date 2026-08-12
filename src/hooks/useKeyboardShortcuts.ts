@@ -15,8 +15,16 @@ import {
   setScriptConsoleVisible,
   setToolsPanelTab,
 } from "@/store/slices/uiSlice";
+import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
 import { createEmptyRequest, isWebSocketRequest } from "@/types/request";
 import { tryFormatJson } from "@/utils/requestBuilder";
+import {
+  selectionToFindPrefill,
+} from "@/url-replace/get-selection-text";
+import {
+  getSelectionForUrlReplace,
+  installSelectionTracker,
+} from "@/url-replace/selection-cache";
 import {
   cleanupWebSocketTabThunk,
   connectWebSocketThunk,
@@ -36,6 +44,10 @@ function isFormFieldTarget(target: EventTarget | null): boolean {
  */
 export function useKeyboardShortcuts() {
   const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    return installSelectionTracker();
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -68,6 +80,25 @@ export function useKeyboardShortcuts() {
           dispatch(setToolsPanelTab("terminal"));
           dispatch(setScriptConsoleVisible(true));
         }
+        return;
+      }
+
+      // Ctrl/Cmd+Shift+H — Find & Replace URLs (sidebar, VS Code–style).
+      // Capture selection BEFORE preventDefault / focus changes.
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        !e.altKey &&
+        (e.key === "h" || e.key === "H")
+      ) {
+        const findPrefill = selectionToFindPrefill(getSelectionForUrlReplace());
+        e.preventDefault();
+        e.stopPropagation();
+        void dispatch(
+          openUrlReplacePanel(
+            findPrefill ? { findPrefill } : undefined,
+          ),
+        );
         return;
       }
 

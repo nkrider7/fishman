@@ -28,6 +28,8 @@ import {
   collapseAllTreeFolders,
   fetchCollections,
 } from "@/store/slices/collectionsSlice";
+import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
+import { detectBases } from "@/url-replace";
 import { parseGitHubRepoUrl } from "@/scanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +71,28 @@ function ScannerDialogOpen() {
 
   const selectedCount = selectedEndpointIds.length;
   const totalCount = result?.endpoints.length ?? 0;
+
+  const suggestedBase = useMemo(() => {
+    if (!result?.endpoints?.length) return null;
+    const urls = result.endpoints
+      .map((ep) => {
+        const path = ep.path?.startsWith("/") ? ep.path : `/${ep.path ?? ""}`;
+        const base = (baseUrl || "").replace(/\/+$/, "");
+        if (!base) return path;
+        return `${base}${path}`;
+      })
+      .filter(Boolean);
+    // Prefer explicit scanner baseUrl when it looks like an origin
+    if (baseUrl?.trim()) {
+      try {
+        const origin = new URL(baseUrl.trim().replace(/\/+$/, ""));
+        return `${origin.protocol}//${origin.host}`;
+      } catch {
+        // fall through to detect
+      }
+    }
+    return detectBases(urls, { limit: 1 })[0]?.origin ?? null;
+  }, [result, baseUrl]);
 
   const githubParsed = useMemo(() => {
     try {
@@ -377,6 +401,27 @@ function ScannerDialogOpen() {
           <div className="flex flex-col items-center gap-3 py-8">
             <CheckCircle2 className="h-10 w-10 text-green-500" />
             <p className="font-medium">Import complete</p>
+            {suggestedBase ? (
+              <button
+                type="button"
+                className="mt-1 max-w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-left text-xs transition-colors hover:bg-accent"
+                onClick={() => {
+                  dispatch(closeScanner());
+                  dispatch(
+                    openUrlReplacePanel({
+                      findPrefill: suggestedBase,
+                      scope: { kind: "workspace" },
+                    }),
+                  );
+                }}
+              >
+                <span className="text-muted-foreground">Detected base </span>
+                <span className="font-mono text-foreground">{suggestedBase}</span>
+                <span className="mt-0.5 block text-muted-foreground">
+                  Replace across collection?
+                </span>
+              </button>
+            ) : null}
           </div>
         )}
 
@@ -398,7 +443,7 @@ function ScannerDialogOpen() {
               </Button>
               <Button
                 onClick={handleImport}
-                disabled={selectedCount === 0 || step === "importing"}
+                disabled={selectedCount === 0}
               >
                 Import {selectedCount} route{selectedCount !== 1 ? "s" : ""}
               </Button>

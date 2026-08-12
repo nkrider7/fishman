@@ -38,6 +38,7 @@ feature request issue.
 | WebSocket first-class requests | Connect / messages / composer |
 | Linux + Windows GitHub Releases | AppImage, deb, NSIS, MSI |
 | Apache-2.0 open-source packaging | License, community docs |
+| Find & Replace URLs | Bulk origin replace with preview + undo |
 
 ## Ideas
 

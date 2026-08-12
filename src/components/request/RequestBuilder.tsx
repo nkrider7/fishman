@@ -52,6 +52,8 @@ import {
   patchApiTestingConfig,
 } from "@/store/slices/apiTestingSlice";
 import { configFromActiveRequest } from "@/api-testing";
+import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
+import { selectionToFindPrefill } from "@/url-replace/get-selection-text";
 import { Code2, Gauge, Loader2, Minimize2, Save, Send, Sparkles } from "lucide-react";
 import { cn } from "@/utils/cn";
 import {
@@ -102,6 +104,28 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
           contextMenuOrder: 1.5,
           run: () => {
             formatBodyRef.current();
+          },
+        });
+
+        editor.addAction({
+          id: "fishman.findReplaceUrls",
+          label: "Find & Replace URLs…",
+          keybindings: [
+            monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyH,
+          ],
+          contextMenuGroupId: "navigation",
+          contextMenuOrder: 1.5,
+          run: (ed) => {
+            const model = ed.getModel();
+            const sel = ed.getSelection();
+            const raw =
+              model && sel && !sel.isEmpty()
+                ? model.getValueInRange(sel)
+                : "";
+            const findPrefill = selectionToFindPrefill(raw);
+            void dispatch(
+              openUrlReplacePanel(findPrefill ? { findPrefill } : undefined),
+            );
           },
         });
       }),

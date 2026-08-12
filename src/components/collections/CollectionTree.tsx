@@ -26,6 +26,7 @@ import {
   Pencil,
   Play,
   Radio,
+  Replace,
   Star,
   Trash2,
 } from "lucide-react";
@@ -46,6 +47,7 @@ import {
 import { openRequestTab } from "@/store/thunks/openRequestTab";
 import { openCollectionRunner } from "@/store/thunks/runnerThunks";
 import { openCollectionSettings } from "@/store/thunks/collectionSettingsThunks";
+import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
 import type { CollectionFolder, SavedRequest } from "@/types/collection";
 import { buildFolderChain, resolveNearestPresets } from "@/collections/inheritance";
 import { AutoDetectApisCta } from "@/components/collections/AutoDetectApisCta";
@@ -1041,6 +1043,22 @@ function TreeContextMenu({
               >
                 <Play className="text-emerald-500" />
                 Run collection
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const isRoot = !folderMenuTarget.parent_id;
+                  void dispatch(
+                    openUrlReplacePanel({
+                      scope: {
+                        kind: isRoot ? "collection" : "folder",
+                        folderId: folderMenuTarget.id,
+                      },
+                    }),
+                  );
+                }}
+              >
+                <Replace className="text-muted-foreground" />
+                Find &amp; Replace URLs…
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>

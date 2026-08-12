@@ -23,6 +23,7 @@ import {
   detectOpenVariable,
   type VariableSuggestion,
 } from "@/variables/suggestions";
+import { rememberTextSelection } from "@/url-replace/selection-cache";
 import { cn } from "@/utils/cn";
 
 interface VariableAwareInputProps
@@ -510,8 +511,17 @@ export function VariableAwareInput({
             handleValueChange(next, caret);
           }}
           onSelect={(e) => {
-            if (!enableSuggestions || !menu.open) return;
             const target = e.currentTarget;
+            const start = target.selectionStart;
+            const end = target.selectionEnd;
+            if (
+              typeof start === "number" &&
+              typeof end === "number" &&
+              end > start
+            ) {
+              rememberTextSelection(target.value.slice(start, end));
+            }
+            if (!enableSuggestions || !menu.open) return;
             syncSuggestions(
               target.value,
               target.selectionStart ?? target.value.length,

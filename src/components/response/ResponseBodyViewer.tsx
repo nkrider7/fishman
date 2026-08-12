@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import Editor from "@monaco-editor/react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import { Copy, Download, Minimize2, Sparkles } from "lucide-react";
 import { HtmlResponsePreview } from "@/components/response/HtmlResponsePreview";
 import { JsonTreeViewer } from "@/components/response/JsonTreeViewer";
 import type { ResponseBodyViewState } from "@/hooks/useResponseBodyView";
 import { getMonacoLanguage } from "@/utils/responseFormat";
 import { minifyJson, tryFormatJson } from "@/utils/requestBuilder";
+import { registerMonacoEditor } from "@/monaco/editor-registry";
 import { cn } from "@/utils/cn";
 
 interface ResponseBodyViewerProps {
@@ -72,6 +73,10 @@ export function ResponseBodyViewer({
     URL.revokeObjectURL(url);
   };
 
+  const onMount: OnMount = (editor) => {
+    registerMonacoEditor(editor);
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {(isJson && !showPreview) || (!showPreview && body) ? (
@@ -134,6 +139,7 @@ export function ResponseBodyViewer({
             language={getMonacoLanguage(effectiveFormat)}
             theme={editorTheme}
             value={displayBody || "(empty body)"}
+            onMount={onMount}
             options={{
               readOnly: true,
               minimap: { enabled: false },

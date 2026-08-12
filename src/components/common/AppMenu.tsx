@@ -8,6 +8,7 @@ import {
   Maximize,
   Menu,
   Minimize2,
+  Replace,
   RotateCcw,
   Scale,
   ZoomIn,
@@ -33,6 +34,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAppDispatch } from "@/hooks/redux";
+import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
 import { useAppZoom } from "@/hooks/useAppZoom";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { FISHMAN_LINKS, openExternalUrl } from "@/utils/external-links";
@@ -43,10 +46,11 @@ import packageJson from "../../../package.json";
 type InfoDialog = "about" | "help" | null;
 
 /**
- * Left title-bar app menu (hamburger): View, About, Help.
+ * Left title-bar app menu (hamburger): Tools, View, About, Help.
  * View submenu holds zoom + fullscreen controls.
  */
 export function AppMenu() {
+  const dispatch = useAppDispatch();
   const { zoomLevel, zoomIn, zoomOut, resetZoom, canZoomIn, canZoomOut } =
     useAppZoom();
   const { fullscreen, toggleFullscreen } = useFullscreen();
@@ -72,6 +76,19 @@ export function AppMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-44">
+          <DropdownMenuItem
+            className="justify-between gap-6 text-xs"
+            onSelect={() => void dispatch(openUrlReplacePanel())}
+          >
+            <span className="flex items-center gap-2">
+              <Replace className="h-3.5 w-3.5 opacity-70" />
+              Find &amp; Replace URLs…
+            </span>
+            <ShortcutHint>{mod}+Shift+H</ShortcutHint>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="text-xs">
               View
@@ -288,6 +305,7 @@ function HelpDialog({
     { keys: `${mod}+S`, label: "Save request" },
     { keys: `${mod}+N`, label: "New request" },
     { keys: `${mod}+W`, label: "Close tab" },
+    { keys: `${mod}+Shift+H`, label: "Find & Replace URLs (uses selection)" },
     { keys: `${mod}+\``, label: "Toggle terminal" },
     { keys: `${mod}++`, label: "Zoom in" },
     { keys: `${mod}+-`, label: "Zoom out" },
