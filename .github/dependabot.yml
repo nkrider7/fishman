@@ -1,31 +1,46 @@
+# Group updates so Dependabot does not open one PR (and one branch) per package.
+# Expect a small number of grouped PRs, not a branch per dependency.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - npm
+    groups:
+      npm-production:
+        dependency-type: production
+      npm-development:
+        dependency-type: development
 
   - package-ecosystem: cargo
     directory: "/src-tauri"
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - rust
+    groups:
+      rust-deps:
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - ci
+    groups:
+      ci-actions:
+        patterns:
+          - "*"

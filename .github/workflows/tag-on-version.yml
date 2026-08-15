@@ -1,0 +1,96 @@
+# When versions on main bump together, create tag vX.Y.Z.
+# That tag (or a workflow_call) starts the Release workflow.
+# Normal feature pushes do nothing — no extra branches.
+
+name: Tag on version bump
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: tag-on-version
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Create version tag
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      tagged: ${{ steps.decide.outputs.tagged }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect version bump
+        id: decide
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pkg_now=$(node -p "require('./package.json').version")
+          conf_now=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          cargo_now=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+
+          if [[ "$pkg_now" != "$conf_now" || "$pkg_now" != "$cargo_now" ]]; then
+            echo "::error::Version mismatch. package.json ($pkg_now), tauri.conf.json ($conf_now), and Cargo.toml ($cargo_now) must be identical."
+            exit 1
+          fi
+
+          if ! [[ "$pkg_now" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Unexpected version format: $pkg_now"
+            exit 1
+          fi
+
+          BEFORE="${{ github.event.before }}"
+          if [[ -z "$BEFORE" || "$BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+            echo "No previous commit on this push; skip tagging."
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pkg_prev=$(git show "$BEFORE:package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          conf_prev=$(git show "$BEFORE:src-tauri/tauri.conf.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          cargo_prev=$(git show "$BEFORE:src-tauri/Cargo.toml" | sed -n 's/^version = "\(.*\)"/\1/p' | head -1)
+
+          echo "previous=$pkg_prev / $conf_prev / $cargo_prev"
+          echo "current=$pkg_now"
+
+          if [[ "$pkg_now" == "$pkg_prev" ]]; then
+            echo "Version unchanged; nothing to tag."
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TAG="v${pkg_now}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "Tag $TAG already exists; skip."
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Fishman $TAG"
+          git push origin "refs/tags/${TAG}"
+
+          echo "Created $TAG"
+          echo "tagged=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Publish installers
+    needs: tag
+    if: needs.tag.outputs.tagged == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

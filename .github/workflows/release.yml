@@ -1,5 +1,5 @@
 # Production installers for Linux + Windows.
-# Trigger: push tag v* (e.g. v0.1.0) → GitHub Release
+# Trigger: push tag v* — or workflow_call from tag-on-version.yml
 # Manual: workflow_dispatch → build artifacts only (no Release)
 
 name: Release
@@ -9,24 +9,48 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Git tag to publish (e.g. v0.1.2)"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 env:
   NODE_VERSION: "20"
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   quality:
     name: Quality gate
     runs-on: ubuntu-22.04
     timeout-minutes: 20
+    outputs:
+      publish: ${{ steps.meta.outputs.publish }}
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -38,11 +62,11 @@ jobs:
       - run: npx tsc --noEmit
 
       - name: Verify tag matches package versions
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME#v}"
+          TAG="${RELEASE_TAG#v}"
           PKG=$(node -p "require('./package.json').version")
           CONF=$(node -p "require('./src-tauri/tauri.conf.json').version")
           CARGO=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
@@ -51,6 +75,59 @@ jobs:
             echo "::error::Version mismatch. Tag v$TAG must equal package.json, tauri.conf.json, and Cargo.toml ($PKG / $CONF / $CARGO)."
             exit 1
           fi
+
+      - name: Build release notes
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          NOTES=$(mktemp)
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { p=1; next }
+            p && /^## \[/ { exit }
+            p { print }
+          ' CHANGELOG.md > "$NOTES"
+
+          {
+            echo "## Fishman ${VERSION}"
+            echo
+            if [[ -s "$NOTES" ]]; then
+              cat "$NOTES"
+              echo
+            else
+              echo "See CHANGELOG.md for details."
+              echo
+            fi
+            cat <<'EOF'
+          ### Downloads
+          | Platform | File | Notes |
+          |----------|------|--------|
+          | Linux | `.AppImage` | Portable — `chmod +x` then run |
+          | Linux | `.deb` | Ubuntu / Debian install |
+          | Windows | NSIS `*-setup.exe` | Recommended installer for most users |
+          | Windows | `.msi` | Enterprise / silent install (`msiexec`) |
+
+          See `SHA256SUMS.txt` on this release for checksums.
+
+          > **Windows note:** Builds are unsigned until Authenticode signing is configured.
+          > SmartScreen may warn on first run — that is expected for new publishers.
+          > Signing guide: https://v2.tauri.app/distribute/sign/windows/
+
+          ### Verify
+          ```bash
+          sha256sum -c SHA256SUMS.txt
+          ```
+          EOF
+          } > release-notes.md
+          cat release-notes.md
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 14
 
   build:
     name: Build (${{ matrix.name }})
@@ -73,6 +150,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -102,36 +181,23 @@ jobs:
       - name: Install JS dependencies
         run: npm ci
 
-      # Tag push → build + upload assets to the GitHub Release for that tag
+      - name: Download release notes
+        if: needs.quality.outputs.publish == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: .
+
+      # Tag push / workflow_call → build + upload assets to the GitHub Release
       - name: Build and publish (tagged release)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: needs.quality.outputs.publish == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Fishman v__VERSION__"
-          releaseBody: |
-            ## Fishman __VERSION__
-
-            ### Downloads
-            | Platform | File | Notes |
-            |----------|------|--------|
-            | Linux | `.AppImage` | Portable — `chmod +x` then run |
-            | Linux | `.deb` | Ubuntu / Debian install |
-            | Windows | NSIS `*-setup.exe` | Recommended installer for most users |
-            | Windows | `.msi` | Enterprise / silent install (`msiexec`) |
-
-            See `SHA256SUMS.txt` on this release for checksums.
-
-            > **Windows note:** Builds are unsigned until Authenticode signing is configured.
-            > SmartScreen may warn on first run — that is expected for new publishers.
-            > Signing guide: https://v2.tauri.app/distribute/sign/windows/
-
-            ### Verify
-            ```bash
-            sha256sum -c SHA256SUMS.txt
-            ```
+          tagName: ${{ needs.quality.outputs.tag }}
+          releaseName: "Fishman ${{ needs.quality.outputs.tag }}"
+          releaseBodyFile: release-notes.md
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: false
@@ -139,7 +205,7 @@ jobs:
 
       # Manual run → build only (no GitHub Release)
       - name: Build (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
+        if: needs.quality.outputs.publish != 'true'
         uses: tauri-apps/tauri-action@v0
         with:
           args: ${{ matrix.args }}
@@ -158,8 +224,8 @@ jobs:
 
   checksums:
     name: Attach SHA256SUMS
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [quality, build]
+    if: needs.quality.outputs.publish == 'true'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -184,6 +250,6 @@ jobs:
       - name: Upload checksums to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.quality.outputs.tag }}
           files: dist/SHA256SUMS.txt
           fail_on_unmatched_files: true

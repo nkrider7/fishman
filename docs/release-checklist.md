@@ -30,19 +30,24 @@ The release workflow fails if the git tag does not match all three.
 
 ## 4. Changelog & commit
 
-- [ ] Update [CHANGELOG.md](../CHANGELOG.md) (Keep a Changelog)
-- [ ] Commit version bump + changelog
+- [ ] Update [CHANGELOG.md](../CHANGELOG.md) (Keep a Changelog) with `## [0.1.2]`
+- [ ] Commit version bump + changelog and push `main` only (no extra branches)
 
 ```bash
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml CHANGELOG.md
 git commit -m "chore: release v0.1.2"
+git push origin main
 ```
 
-## 5. Tag & push
+## 5. Auto-tag
+
+- [ ] Confirm **Tag on version bump** created `v0.1.2`
+- [ ] Confirm **Release** started for that tag
+
+Fallback if auto-tag did not run:
 
 ```bash
-git tag v0.1.2
-git push origin main
+git tag -a v0.1.2 -m "Fishman v0.1.2"
 git push origin v0.1.2
 ```
 

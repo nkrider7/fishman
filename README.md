@@ -1,3 +1,5 @@
+<img src="./app-icon.png" alt="Fishman Logo" height="100" />
+
 # Fishman
 
 **A native, Git-first API client for developers who care about speed, privacy, and flow.**
@@ -22,13 +24,19 @@ No Electron bloat. No cloud lock-in. Your requests, history, and secrets stay on
 
 ## Support
 
-If Fishman helps your workflow, you can support development on Ko-fi:
+
 
 <div align="center">
   <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
     <img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi3.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" />
   </a>
+  <br />
+  <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
+    <img src="docs/images/buyme2.png" alt="It's free. It's open source. I just need coffee — support Fishman on Ko-fi" width="100%" />
+  </a>
 </div>
+
+
 
 Sponsorship never gates features — Fishman stays open source and free to use.
 
@@ -376,3 +384,19 @@ When configuring the repository on GitHub, add:
 <p align="center">
   <strong>Fishman</strong> — open a request. Hit send. Stay in flow.
 </p>
+
+---
+
+## Support
+
+<div align="center">
+  <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
+    <img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi3.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" />
+  </a>
+  <br />
+  <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
+    <img src="docs/images/buyme.png" alt="It's free. It's open source. I just need coffee — support Fishman on Ko-fi" width="100%" />
+  </a>
+</div>
+
+Sponsorship never gates features — Fishman stays open source and free to use.
