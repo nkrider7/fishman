@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-16
+
 ### Added
 
-- Apache License 2.0 and open-source project documentation
-- Contributor Covenant Code of Conduct
-- Security policy, contributing guide, and GitHub community templates
+- Find & Replace URLs sidebar panel (select text + `Ctrl/Cmd+Shift+H`)
+- Ko-fi support in About / Settings and on the project README
+- Apache License 2.0, Code of Conduct, security policy, contributing guide, and GitHub community templates
+
+### Changed
+
+- Release pipeline: auto-tag on version bump, GitHub Release notes from this changelog, grouped monthly Dependabot
+- Package metadata (license, author, repository, homepage)
 
 ## [0.1.1] - 2026-07-29
 
@@ -45,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project scanner for major Node, Python, and Java frameworks
 - Linux and Windows GitHub Actions release pipeline
 
-[Unreleased]: https://github.com/nkrider7/fishman/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/nkrider7/fishman/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/nkrider7/fishman/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nkrider7/fishman/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nkrider7/fishman/releases/tag/v0.1.0

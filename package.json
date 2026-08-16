@@ -1,7 +1,7 @@
 {
   "name": "fishman",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Open-source, native, Git-first API client built with Tauri, Rust, and React",
   "license": "Apache-2.0",
   "author": "Narendra Nishad",

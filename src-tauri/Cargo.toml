@@ -1,6 +1,6 @@
 [package]
 name = "fishman"
-version = "0.1.1"
+version = "0.1.2"
 description = "Open-source, native, Git-first API client built with Tauri, Rust, and React"
 authors = ["Narendra Nishad"]
 edition = "2021"
