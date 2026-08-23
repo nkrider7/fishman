@@ -69,6 +69,7 @@ import { getMethodClass } from "@/utils/requestBuilder";
 import { matchesMethodSearch, parseMethodSearch } from "@/http-methods";
 import { cn } from "@/utils/cn";
 import { findRootCollectionId } from "@/utils/collectionUtils";
+import { Button } from "../ui/button";
 
 type DragItem = { type: "folder" | "request"; id: string };
 type TreeContextTarget =
