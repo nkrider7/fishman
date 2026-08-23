@@ -801,6 +801,7 @@ export function CollectionTree() {
                 startRename("request", request.id, request.name);
               }}
             >
+              <span>hey</span>
               <span className="w-4 shrink-0" aria-hidden />
               <span
                 className={cn(
