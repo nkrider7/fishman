@@ -736,7 +736,7 @@ export function CollectionTree() {
                     ) : (
                       <Folder className="h-4 w-4 shrink-0 text-amber-500" />
                     )}
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center w-full">
                       <span className="truncate">{folder.name}</span>
                       <Button
                         variant="ghost"
