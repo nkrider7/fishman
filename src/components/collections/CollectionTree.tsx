@@ -736,17 +736,18 @@ export function CollectionTree() {
                     ) : (
                       <Folder className="h-4 w-4 shrink-0 text-amber-500" />
                     )}
-                    <span className="truncate">{folder.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      title="New request"
-                      onClick={() => handleNewRequest(folder.id)}
-
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex justify-between">
+                      <span className="truncate">{folder.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="New request"
+                        onClick={() => handleNewRequest(folder.id)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
 
                   </button>
                 </DroppableFolderNest>
