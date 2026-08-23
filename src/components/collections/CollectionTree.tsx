@@ -747,7 +747,7 @@ export function CollectionTree() {
                       size="icon"
                       className="h-7 w-7"
                       title="New request"
-                      onClick={() => onNewRequest(folderMenuTarget.id)}
+                      onClick={() => onNewRequest(folder.id)}
 
                     >
                       <Plus className="h-3.5 w-3.5" />
