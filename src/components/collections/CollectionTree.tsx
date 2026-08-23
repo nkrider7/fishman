@@ -78,11 +78,11 @@ type DropData =
   | { type: "root"; id: null }
   | { type: "nest"; folderId: string }
   | {
-      type: "reorder";
-      itemType: "folder" | "request";
-      id: string;
-      parentId: string | null;
-    };
+    type: "reorder";
+    itemType: "folder" | "request";
+    id: string;
+    parentId: string | null;
+  };
 
 const bySortOrder = <T extends { sort_order: number; created_at: number }>(
   a: T,
@@ -737,7 +737,16 @@ export function CollectionTree() {
                       <Folder className="h-4 w-4 shrink-0 text-amber-500" />
                     )}
                     <span className="truncate">{folder.name}</span>
-                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="New request"
+                      onClick={handleCreateRequest}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+
                   </button>
                 </DroppableFolderNest>
               )}
@@ -860,36 +869,36 @@ export function CollectionTree() {
       {searchQuery.trim() || requests.length > 200 ? (
         <CollectionSearchResults query={searchQuery.trim() ? searchQuery : ""} />
       ) : (
-      <DndContext
-        sensors={sensors}
-        collisionDetection={treeCollisionDetection}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <TreeScrollRoot isDragging={!!activeDrag} onFileDrop={handleFileDrop}>
-          {rootEntries.map((entry) =>
-            entry.type === "folder"
-              ? renderFolder(entry.item)
-              : renderRequest(entry.item),
-          )}
-          {rootEntries.length === 0 && (
-            <p className="px-3 py-4 text-sm text-muted-foreground">
-              No collections yet. Click + to create, or open a Git project.
-            </p>
-          )}
-        </TreeScrollRoot>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={treeCollisionDetection}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <TreeScrollRoot isDragging={!!activeDrag} onFileDrop={handleFileDrop}>
+            {rootEntries.map((entry) =>
+              entry.type === "folder"
+                ? renderFolder(entry.item)
+                : renderRequest(entry.item),
+            )}
+            {rootEntries.length === 0 && (
+              <p className="px-3 py-4 text-sm text-muted-foreground">
+                No collections yet. Click + to create, or open a Git project.
+              </p>
+            )}
+          </TreeScrollRoot>
 
-        <DragOverlay>
-          {activeDrag && (
-            <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm shadow-lg">
-              {activeDrag.type === "folder" && (
-                <Folder className="h-4 w-4 text-teal-500" />
-              )}
-              {dragOverlayLabel}
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeDrag && (
+              <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm shadow-lg">
+                {activeDrag.type === "folder" && (
+                  <Folder className="h-4 w-4 text-teal-500" />
+                )}
+                {dragOverlayLabel}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       <AutoDetectApisCta />
@@ -983,160 +992,160 @@ function TreeContextMenu({
     : null;
 
   return (
-      <DropdownMenu
-        open={treeMenu.open}
-        onOpenChange={(open) =>
-          setTreeMenu((prev) => ({
-            ...prev,
-            open,
-            target: open ? prev.target : null,
-          }))
-        }
-      >
-        <DropdownMenuTrigger asChild>
-          <span
-            aria-hidden
-            className="pointer-events-none fixed h-0 w-0 overflow-hidden opacity-0"
-            style={{ left: treeMenu.x, top: treeMenu.y }}
-          />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          {folderMenuTarget ? (
-            <>
+    <DropdownMenu
+      open={treeMenu.open}
+      onOpenChange={(open) =>
+        setTreeMenu((prev) => ({
+          ...prev,
+          open,
+          target: open ? prev.target : null,
+        }))
+      }
+    >
+      <DropdownMenuTrigger asChild>
+        <span
+          aria-hidden
+          className="pointer-events-none fixed h-0 w-0 overflow-hidden opacity-0"
+          style={{ left: treeMenu.x, top: treeMenu.y }}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-52">
+        {folderMenuTarget ? (
+          <>
+            <DropdownMenuItem
+              onClick={() => onSelectFolder(folderMenuTarget.id)}
+            >
+              <FolderOpen className="text-muted-foreground" />
+              Open
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onNewRequest(folderMenuTarget.id)}
+            >
+              <FilePlus2 className="text-muted-foreground" />
+              Add request
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onNewWebSocketRequest(folderMenuTarget.id)}
+            >
+              <Radio className="text-violet-500" />
+              Add WebSocket
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onNewFolder(folderMenuTarget.id)}
+            >
+              <FolderPlus className="text-muted-foreground" />
+              Add folder
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                const rootIdForRun =
+                  findRootCollectionId(folderMenuTarget.id, folders) ??
+                  folderMenuTarget.id;
+                void dispatch(
+                  openCollectionRunner({
+                    collectionId: rootIdForRun,
+                    folderId: folderMenuTarget.parent_id
+                      ? folderMenuTarget.id
+                      : null,
+                  }),
+                );
+              }}
+            >
+              <Play className="text-emerald-500" />
+              Run collection
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const isRoot = !folderMenuTarget.parent_id;
+                void dispatch(
+                  openUrlReplacePanel({
+                    scope: {
+                      kind: isRoot ? "collection" : "folder",
+                      folderId: folderMenuTarget.id,
+                    },
+                  }),
+                );
+              }}
+            >
+              <Replace className="text-muted-foreground" />
+              Find &amp; Replace URLs…
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                onStartRename(
+                  "folder",
+                  folderMenuTarget.id,
+                  folderMenuTarget.name,
+                )
+              }
+            >
+              <Pencil className="text-muted-foreground" />
+              Rename
+            </DropdownMenuItem>
+            {folderMenuRootId ? (
               <DropdownMenuItem
-                onClick={() => onSelectFolder(folderMenuTarget.id)}
+                onClick={() => onExportCollection(folderMenuRootId)}
               >
-                <FolderOpen className="text-muted-foreground" />
-                Open
+                <Download className="text-muted-foreground" />
+                Export collection
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onNewRequest(folderMenuTarget.id)}
-              >
-                <FilePlus2 className="text-muted-foreground" />
-                Add request
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onNewWebSocketRequest(folderMenuTarget.id)}
-              >
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => dispatch(deleteFolder(folderMenuTarget.id))}
+            >
+              <Trash2 />
+              Delete
+            </DropdownMenuItem>
+          </>
+        ) : requestMenuTarget ? (
+          <>
+            <DropdownMenuItem
+              onClick={() => onOpenRequest(requestMenuTarget)}
+            >
+              {requestMenuTarget.protocol === "websocket" ? (
                 <Radio className="text-violet-500" />
-                Add WebSocket
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onNewFolder(folderMenuTarget.id)}
-              >
-                <FolderPlus className="text-muted-foreground" />
-                Add folder
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  const rootIdForRun =
-                    findRootCollectionId(folderMenuTarget.id, folders) ??
-                    folderMenuTarget.id;
-                  void dispatch(
-                    openCollectionRunner({
-                      collectionId: rootIdForRun,
-                      folderId: folderMenuTarget.parent_id
-                        ? folderMenuTarget.id
-                        : null,
-                    }),
-                  );
-                }}
-              >
-                <Play className="text-emerald-500" />
-                Run collection
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  const isRoot = !folderMenuTarget.parent_id;
-                  void dispatch(
-                    openUrlReplacePanel({
-                      scope: {
-                        kind: isRoot ? "collection" : "folder",
-                        folderId: folderMenuTarget.id,
-                      },
-                    }),
-                  );
-                }}
-              >
-                <Replace className="text-muted-foreground" />
-                Find &amp; Replace URLs…
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  onStartRename(
-                    "folder",
-                    folderMenuTarget.id,
-                    folderMenuTarget.name,
-                  )
-                }
-              >
-                <Pencil className="text-muted-foreground" />
-                Rename
-              </DropdownMenuItem>
-              {folderMenuRootId ? (
-                <DropdownMenuItem
-                  onClick={() => onExportCollection(folderMenuRootId)}
-                >
-                  <Download className="text-muted-foreground" />
-                  Export collection
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => dispatch(deleteFolder(folderMenuTarget.id))}
-              >
-                <Trash2 />
-                Delete
-              </DropdownMenuItem>
-            </>
-          ) : requestMenuTarget ? (
-            <>
-              <DropdownMenuItem
-                onClick={() => onOpenRequest(requestMenuTarget)}
-              >
-                {requestMenuTarget.protocol === "websocket" ? (
-                  <Radio className="text-violet-500" />
-                ) : (
-                  <FileText className="text-muted-foreground" />
-                )}
-                Open
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  onStartRename(
-                    "request",
-                    requestMenuTarget.id,
-                    requestMenuTarget.name,
-                  )
-                }
-              >
-                <Pencil className="text-muted-foreground" />
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  dispatch(duplicateRequestInDb(requestMenuTarget.id))
-                }
-              >
-                <Copy className="text-muted-foreground" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() =>
-                  dispatch(deleteRequestFromDb(requestMenuTarget.id))
-                }
-              >
-                <Trash2 />
-                Delete
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              ) : (
+                <FileText className="text-muted-foreground" />
+              )}
+              Open
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                onStartRename(
+                  "request",
+                  requestMenuTarget.id,
+                  requestMenuTarget.name,
+                )
+              }
+            >
+              <Pencil className="text-muted-foreground" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                dispatch(duplicateRequestInDb(requestMenuTarget.id))
+              }
+            >
+              <Copy className="text-muted-foreground" />
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() =>
+                dispatch(deleteRequestFromDb(requestMenuTarget.id))
+              }
+            >
+              <Trash2 />
+              Delete
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
