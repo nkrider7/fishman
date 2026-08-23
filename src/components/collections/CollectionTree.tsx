@@ -731,7 +731,6 @@ export function CollectionTree() {
                       startRename("folder", folder.id, folder.name);
                     }}
                   >
-                    <div>hey</div>
                     {isExpanded ? (
                       <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
                     ) : (
