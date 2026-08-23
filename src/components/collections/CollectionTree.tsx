@@ -743,7 +743,7 @@ export function CollectionTree() {
                       size="icon"
                       className="h-7 w-7"
                       title="New request"
-                      onClick={handleNewTab}
+                      onClick={handleNew}
 
                     >
                       <Plus className="h-3.5 w-3.5" />
