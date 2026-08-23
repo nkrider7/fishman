@@ -740,7 +740,7 @@ export function CollectionTree() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className=" "
+                      className="h-7 w-7"
                       title="New request"
                       onClick={() => handleNewRequest(folder.id)}
 
