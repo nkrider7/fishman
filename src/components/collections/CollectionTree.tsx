@@ -106,7 +106,9 @@ const treeCollisionDetection: CollisionDetection = (args) => {
 
   return collisions;
 };
-
+const handleNewTab = () => {
+    dispatch(openRequestTab({ request: createEmptyRequest(), forceNew: true }));
+  };
 const TREE_INDENT = 16;
 
 /** Vertical guide lines showing tree depth (Postman-style) */
