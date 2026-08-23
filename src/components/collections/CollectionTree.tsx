@@ -723,7 +723,7 @@ export function CollectionTree() {
                 >
                   <button
                     type="button"
-                    className="flex  w-full min-w-0 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
+                    className="flex justify-between w-full min-w-0 items-center gap-1 rounded px-0.5 text-left hover:bg-accent/80"
                     onClick={() => selectFolder(folder.id)}
                     onDoubleClick={(e) => {
                       e.preventDefault();
