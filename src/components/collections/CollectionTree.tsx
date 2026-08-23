@@ -666,10 +666,6 @@ export function CollectionTree() {
       ...childRequests.map((item) => ({ type: "request" as const, item })),
     ];
 
-    function onNewRequest(id: any): void {
-      throw new Error("Function not implemented.");
-    }
-
     return (
       <div key={folder.id}>
         <DroppableTreeRow
@@ -745,11 +741,12 @@ export function CollectionTree() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 ml-6"
+                      className="h-7 w-7"
                       title="New request"
+                      onClick={() => onNewRequest(folderMenuTarget.id)}
 
                     >
-                      <Plus onClick={() => onNewRequest(folder.id)} className="h-3.5 w-3.5" />
+                      <Plus className="h-3.5 w-3.5" />
                     </Button>
 
                   </button>
