@@ -745,7 +745,7 @@ export function CollectionTree() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-7 w-7 ml-6"
                       title="New request"
 
                     >
