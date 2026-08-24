@@ -748,7 +748,6 @@ export function CollectionTree() {
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-
                   </button>
                 </DroppableFolderNest>
               )}
@@ -826,10 +825,22 @@ export function CollectionTree() {
               >
                 {request.protocol === "websocket" ? "WS" : request.method}
               </span>
-              <span className="truncate">{request.name}</span>
-              {request.is_favorite === 1 && (
-                <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
-              )}
+
+              <div className="group flex min-w-0 flex-1 items-center gap-1 rounded px-0.5 text-left">
+                <span className="truncate">{request.name}</span>
+                {request.is_favorite === 1 && (
+                  <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+                )}
+                <div
+                  className="ml-auto mr-2 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dispatch(deleteRequestFromDb(request.id));
+                  }}
+                >
+                  <Trash2 size={14} />
+                </div>
+              </div>
             </button>
           )}
         </DraggableTreeItem>
