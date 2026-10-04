@@ -16,7 +16,7 @@ import { findRootCollectionId } from "@/utils/collectionUtils";
 import { hasScriptError } from "@/script-engine";
 import { detectQuerySupport } from "@/http-methods";
 import { normalizeDomain } from "@/utils/cookies";
-import { buildNetworkLogEntry } from "@/utils/networkLog";
+import { buildNetworkLogFromResponse } from "@/utils/networkLog";
 import type { CookieChange } from "@/types/cookie";
 import {
   executeOneRequest,
@@ -150,12 +150,10 @@ export const sendRequestThunk = createAsyncThunk(
         );
         dispatch(
           appendNetworkLog(
-            buildNetworkLogEntry({
+            buildNetworkLogFromResponse({
               method: result.request.method || draft.method,
               url: result.resolvedRequest.url || draft.url,
-              statusCode: null,
-              durationMs: Date.now() - requestStartedAt,
-              sizeBytes: null,
+              request: result.request,
               startedAt: requestStartedAt,
               tabId,
               error: message,
@@ -176,12 +174,10 @@ export const sendRequestThunk = createAsyncThunk(
         );
         dispatch(
           appendNetworkLog(
-            buildNetworkLogEntry({
+            buildNetworkLogFromResponse({
               method: result.request.method || draft.method,
               url: result.resolvedRequest.url || draft.url,
-              statusCode: null,
-              durationMs: Date.now() - requestStartedAt,
-              sizeBytes: null,
+              request: result.request,
               startedAt: requestStartedAt,
               tabId,
               error: message,
@@ -222,12 +218,11 @@ export const sendRequestThunk = createAsyncThunk(
 
       dispatch(
         appendNetworkLog(
-          buildNetworkLogEntry({
+          buildNetworkLogFromResponse({
             method: result.request.method,
             url: result.request.url,
-            statusCode: result.response.status,
-            durationMs: result.response.duration_ms,
-            sizeBytes: result.response.size_bytes,
+            request: result.request,
+            response: result.response,
             startedAt: requestStartedAt,
             tabId,
           }),

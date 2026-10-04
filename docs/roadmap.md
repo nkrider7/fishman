@@ -18,12 +18,12 @@ feature request issue.
 
 | Item | Notes |
 |------|--------|
-| OpenAPI / Swagger import | Generate collections from specs |
 | Bruno / Insomnia / HAR / cURL import | Broader migration paths |
 | macOS release artifacts | CI packaging + notarization later |
 | GraphQL subscriptions | Over the WebSocket client |
 | Collection documentation polish | HTML / share flows |
 | Authenticode / code signing | Windows / macOS trust |
+| Scan Drift watch mode | Opt-in project file watcher (on-demand sync shipped) |
 
 ## Completed
 
@@ -39,6 +39,9 @@ feature request issue.
 | Linux + Windows GitHub Releases | AppImage, deb, NSIS, MSI |
 | Apache-2.0 open-source packaging | License, community docs |
 | Find & Replace URLs | Bulk origin replace with preview + undo |
+| OpenAPI / Swagger connect + sync | Import from URL/file; Spec Link drift sync |
+| Scan Drift (on-demand) | Diff code routes vs collection + surgical sync |
+| Env detect from `.env` (Phase 1) | Review dialog → public + `*.secret.json` |
 
 ## Ideas
 
@@ -52,6 +55,7 @@ These are not committed; discuss before large implementation:
 - PHP / C# / Ruby language scanners
 - Mobile companion or lightweight CLI
 - Telemetry that is opt-in only (privacy-preserving)
+- Env detect Phase 2/3 (docker-compose, Kubernetes manifests)
 
 ## How to influence the roadmap
 

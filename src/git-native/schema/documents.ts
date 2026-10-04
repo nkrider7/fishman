@@ -138,10 +138,14 @@ export const fishRequestSchema = z
     seq: z.number().int().optional(),
     source: z
       .object({
-        kind: z.enum(["manual", "scanner"]).default("manual"),
+        kind: z.enum(["manual", "scanner", "imported"]).default("manual"),
         locked: z.boolean().default(false),
         routeFile: z.string().optional(),
         endpointId: z.string().optional(),
+        scanKey: z.string().optional(),
+        framework: z.string().optional(),
+        handler: z.string().optional(),
+        lineNumber: z.number().optional(),
       })
       .passthrough()
       .optional(),

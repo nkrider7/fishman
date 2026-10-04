@@ -6,6 +6,8 @@ vi.mock("@/services/dbService", () => ({
   getCollections: vi.fn(),
   deleteFolder: vi.fn(),
   importCollection: vi.fn(),
+  getSettingJson: vi.fn().mockResolvedValue({}),
+  setSettingJson: vi.fn().mockResolvedValue(undefined),
 }));
 
 import {

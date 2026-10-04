@@ -51,6 +51,7 @@ Sponsorship never gates features — Fishman stays open source and free to use.
 | **WebSocket** | Connect / disconnect, live timeline, Text / JSON / Binary composer |
 | **Git-native** | Collections as `*.fish` JSON in your repo — branch, review, and merge |
 | **Scanner** | Point at a codebase (or GitHub URL) and generate a collection |
+| **OpenAPI** | Connect OpenAPI 3 / Swagger 2 (URL or file) and keep collections in sync |
 | **Privacy** | Local SQLite + optional filesystem workspace; nothing synced by default |
 | **Native** | HTTP via Rust `reqwest`; small Tauri shell instead of Chromium-as-app |
 
@@ -58,8 +59,10 @@ Sponsorship never gates features — Fishman stays open source and free to use.
 
 - Multi-tab workspace with pin, unsaved indicators, and keyboard shortcuts
 - Environments with `{{variable}}` substitution and live scope hints
-- Import / export Postman and Fishman formats
+- Import / export Postman, Fishman, and OpenAPI / Swagger formats
 - **Find & Replace URLs** — sidebar panel (VS Code–style); select text + `Ctrl/Cmd+Shift+H`
+- **Scan Drift** — re-scan linked projects; sync added / removed / changed routes
+- **OpenAPI Sync** — Spec Link + surgical sync that preserves scripts and locked requests
 - Workspaces, cookies manager, history, themes (light / dark / system)
 - Plugin-oriented scanner and import-export layers
 
@@ -233,7 +236,7 @@ High-level plan: [docs/roadmap.md](docs/roadmap.md).
 | Status | Themes |
 |--------|--------|
 | In progress | WebSocket polish, scanner coverage, Git UX |
-| Planned | OpenAPI / Bruno / Insomnia import, macOS releases, GraphQL subscriptions |
+| Planned | Bruno / Insomnia import, macOS releases, GraphQL subscriptions |
 | Ideas | Collections sharing, richer docs export, more language scanners |
 
 ---

@@ -11,9 +11,11 @@ import { fishmanImporter } from "../plugins/fishman-importer";
 import { fishmanExporter } from "../plugins/fishman-exporter";
 import { postmanImporter } from "../plugins/postman-importer";
 import { postmanExporter } from "../plugins/postman-exporter";
+import { openapiImporter } from "../plugins/openapi-importer";
 
 importExportRegistry.registerImporter(fishmanImporter);
 importExportRegistry.registerImporter(postmanImporter);
+importExportRegistry.registerImporter(openapiImporter);
 importExportRegistry.registerExporter(fishmanExporter);
 importExportRegistry.registerExporter(postmanExporter);
 
@@ -47,7 +49,7 @@ export function buildImportPreview(
         {
           message: "Unsupported or unrecognized collection format.",
           suggestion:
-            "Import a Fishman (.fishman.json) or Postman Collection v2/v2.1 file.",
+            "Import a Fishman (.fishman.json), Postman Collection v2/v2.1, or OpenAPI/Swagger file.",
         },
       ],
       result: null,
@@ -141,6 +143,7 @@ export {
   fishmanExporter,
   postmanImporter,
   postmanExporter,
+  openapiImporter,
 };
 
 export type { ImportResult, ImportPreview, ImportError, ExportOptions };

@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Box,
   Download,
+  FileJson,
   FolderGit2,
   FolderOpen,
   GitBranch,
@@ -10,6 +11,7 @@ import {
   Plus,
   ScanSearch,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
@@ -19,6 +21,7 @@ import {
   setSearchQuery,
 } from "@/store/slices/collectionsSlice";
 import { openScanner } from "@/store/slices/scannerSlice";
+import { openAiScanner } from "@/store/slices/aiScannerSlice";
 import { ScannerDialog } from "@/components/scanner/ScannerDialog";
 import { ImportDialog } from "@/components/import-export/ImportDialog";
 import { ExportDialog } from "@/components/import-export/ExportDialog";
@@ -159,6 +162,22 @@ export function CollectionHeader({
                 <DropdownMenuItem onClick={() => dispatch(openScanner())}>
                   <ScanSearch className="text-muted-foreground" />
                   Scan backend project
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => dispatch(openAiScanner())}>
+                  <Sparkles className="text-primary h-4 w-4" />
+                  AI Codebase Scan (Needle)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    void import("@/store/slices/openapiSlice").then(
+                      ({ openConnectOpenApi }) => {
+                        void dispatch(openConnectOpenApi(undefined));
+                      },
+                    );
+                  }}
+                >
+                  <FileJson className="text-muted-foreground" />
+                  Connect OpenAPI Spec…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

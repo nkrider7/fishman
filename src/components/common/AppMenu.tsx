@@ -4,6 +4,9 @@ import {
   Coffee,
   ExternalLink,
   FolderGit2,
+  FolderSearch,
+  FileJson,
+  GitCompareArrows,
   Info,
   Maximize,
   Menu,
@@ -34,7 +37,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAppDispatch } from "@/hooks/redux";
+import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
 import { useAppZoom } from "@/hooks/useAppZoom";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -51,6 +54,7 @@ type InfoDialog = "about" | "help" | null;
  */
 export function AppMenu() {
   const dispatch = useAppDispatch();
+  const projectPath = useAppSelector((s) => s.git.projectPath);
   const { zoomLevel, zoomIn, zoomOut, resetZoom, canZoomIn, canZoomOut } =
     useAppZoom();
   const { fullscreen, toggleFullscreen } = useFullscreen();
@@ -85,6 +89,80 @@ export function AppMenu() {
               Find &amp; Replace URLs…
             </span>
             <ShortcutHint>{mod}+Shift+H</ShortcutHint>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-xs"
+            onSelect={() => {
+              void import("@/store/slices/openapiSlice").then(
+                ({ openConnectOpenApi }) => {
+                  void dispatch(openConnectOpenApi(undefined));
+                },
+              );
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <FileJson className="h-3.5 w-3.5 opacity-70" />
+              Connect OpenAPI Spec…
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-xs"
+            onSelect={() => {
+              void import("@/store/slices/openapiSlice").then(
+                ({ openOpenApiSync, checkOpenApiDrift }) => {
+                  void dispatch(openOpenApiSync(undefined)).then((result) => {
+                    if (openOpenApiSync.fulfilled.match(result)) {
+                      void dispatch(checkOpenApiDrift());
+                    }
+                  });
+                },
+              );
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <FileJson className="h-3.5 w-3.5 opacity-70" />
+              OpenAPI Sync…
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-xs"
+            onSelect={() => {
+              void import("@/store/slices/scanDriftSlice").then(
+                ({ openScanDrift, checkScanDrift }) => {
+                  void dispatch(openScanDrift(undefined)).then((result) => {
+                    if (openScanDrift.fulfilled.match(result)) {
+                      void dispatch(checkScanDrift());
+                    }
+                  });
+                },
+              );
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <GitCompareArrows className="h-3.5 w-3.5 opacity-70" />
+              Scan Drift…
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-xs"
+            disabled={!projectPath}
+            title={
+              projectPath
+                ? "Detect {{baseUrl}} / secrets from .env"
+                : "Open a project folder first"
+            }
+            onSelect={() => {
+              void import("@/store/slices/envDetectSlice").then(
+                ({ openEnvDetect }) => {
+                  void dispatch(openEnvDetect());
+                },
+              );
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <FolderSearch className="h-3.5 w-3.5 opacity-70" />
+              Detect environment…
+            </span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

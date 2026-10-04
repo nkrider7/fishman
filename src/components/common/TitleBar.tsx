@@ -6,6 +6,7 @@ import {
   PanelBottom,
   PanelLeft,
   PanelRight,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import {
   setSidebarCollapsed,
 } from "@/store/slices/settingsSlice";
 import { setResponsePanelVisible } from "@/store/slices/uiSlice";
+import { toggleAiSidebarOpen } from "@/store/slices/aiSlice";
 import type { WorkspaceLayout } from "@/types/settings";
 import { cn } from "@/utils/cn";
 
@@ -26,6 +28,7 @@ export function TitleBar() {
   const collapsed = useAppSelector((s) => s.settings.sidebarCollapsed);
   const workspaceLayout = useAppSelector((s) => s.settings.workspaceLayout);
   const responseVisible = useAppSelector((s) => s.ui.responsePanelVisible);
+  const isAiSidebarOpen = useAppSelector((s) => s.ai.isSidebarOpen);
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -114,6 +117,15 @@ export function TitleBar() {
             onClick={() => selectLayout("horizontal")}
           >
             <PanelRight className="h-3.5 w-3.5" />
+          </TitleBarButton>
+          <div className="mx-0.5 h-3 w-px bg-border/60" />
+          <TitleBarButton
+            active={isAiSidebarOpen}
+            title="Toggle AI Copilot Sidebar (Cmd+K / Ctrl+K)"
+            onClick={() => dispatch(toggleAiSidebarOpen())}
+            className={cn(isAiSidebarOpen && "text-primary bg-primary/10 hover:bg-primary/20")}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
           </TitleBarButton>
         </div>
 

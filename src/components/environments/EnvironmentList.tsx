@@ -1,4 +1,4 @@
-import { Copy, Plus, Search, Trash2 } from "lucide-react";
+import { Copy, FolderSearch, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
@@ -25,6 +25,7 @@ export function EnvironmentList({
   const selectedId = useAppSelector((s) => s.environments.selectedEnvironmentId);
   const { activeGlobalEnvironmentId, activeCollectionEnvironmentIds } =
     useAppSelector((s) => s.environments);
+  const projectPath = useAppSelector((s) => s.git.projectPath);
   const [search, setSearch] = useState("");
 
   const activeIdForScope = collectionId
@@ -48,6 +49,12 @@ export function EnvironmentList({
     dispatch(createEnvironment({ name, variables: [], collectionId }));
   };
 
+  const handleDetect = () => {
+    void import("@/store/slices/envDetectSlice").then(({ openEnvDetect }) => {
+      void dispatch(openEnvDetect());
+    });
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col border-b bg-muted/10 md:border-b-0 md:border-r">
       <div className="space-y-2.5 border-b p-3">
@@ -55,16 +62,33 @@ export function EnvironmentList({
           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Environments
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1 px-2 text-xs text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
-            title="New environment"
-            onClick={handleCreate}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            New
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs"
+              title={
+                projectPath
+                  ? "Detect from project .env"
+                  : "Open a project folder first"
+              }
+              disabled={!projectPath || !!collectionId}
+              onClick={handleDetect}
+            >
+              <FolderSearch className="h-3.5 w-3.5" />
+              Detect
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
+              title="New environment"
+              onClick={handleCreate}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

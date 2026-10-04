@@ -274,12 +274,12 @@ pub async fn ws_connect(
                 cmd = rx.recv() => {
                     match cmd {
                         Some(WsCommand::Text(text)) => {
-                            if write.send(Message::Text(text.into())).await.is_err() {
+                            if write.send(Message::Text(text)).await.is_err() {
                                 break;
                             }
                         }
                         Some(WsCommand::Binary(bytes)) => {
-                            if write.send(Message::Binary(bytes.into())).await.is_err() {
+                            if write.send(Message::Binary(bytes)).await.is_err() {
                                 break;
                             }
                         }

@@ -18,6 +18,11 @@ import gitReducer from "./slices/gitSlice";
 import apiTestingReducer from "./slices/apiTestingSlice";
 import filesystemSyncReducer from "./slices/filesystemSyncSlice";
 import websocketReducer from "./slices/websocketSlice";
+import scanDriftReducer from "./slices/scanDriftSlice";
+import envDetectReducer from "./slices/envDetectSlice";
+import openapiReducer from "./slices/openapiSlice";
+import aiReducer from "./slices/aiSlice";
+import aiScannerReducer from "./slices/aiScannerSlice";
 import { sendRequestThunk } from "./thunks/sendRequest";
 
 export const store = configureStore({
@@ -41,6 +46,11 @@ export const store = configureStore({
     apiTesting: apiTestingReducer,
     filesystemSync: filesystemSyncReducer,
     websocket: websocketReducer,
+    scanDrift: scanDriftReducer,
+    envDetect: envDetectReducer,
+    openapi: openapiReducer,
+    ai: aiReducer,
+    aiScanner: aiScannerReducer,
   },
 });
 

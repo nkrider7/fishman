@@ -93,7 +93,7 @@ function ImportDialogOpen({
     const selected = await openFileDialog({
       multiple: false,
       filters: [
-        { name: "Collections", extensions: ["json", "fishman.json"] },
+        { name: "Collections", extensions: ["json", "yaml", "yml", "fishman.json"] },
         { name: "All Files", extensions: ["*"] },
       ],
     });

@@ -27,6 +27,8 @@ import {
   Play,
   Radio,
   Replace,
+  GitCompareArrows,
+  FileJson,
   Star,
   Trash2,
 } from "lucide-react";
@@ -48,6 +50,11 @@ import { openRequestTab } from "@/store/thunks/openRequestTab";
 import { openCollectionRunner } from "@/store/thunks/runnerThunks";
 import { openCollectionSettings } from "@/store/thunks/collectionSettingsThunks";
 import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
+import {
+  checkScanDrift,
+  loadScanLinks,
+  openScanDrift,
+} from "@/store/slices/scanDriftSlice";
 import type { CollectionFolder, SavedRequest } from "@/types/collection";
 import { buildFolderChain, resolveNearestPresets } from "@/collections/inheritance";
 import { AutoDetectApisCta } from "@/components/collections/AutoDetectApisCta";
@@ -313,6 +320,10 @@ export function CollectionTree() {
       Object.fromEntries(foldersRef.current.map((f) => [f.id, false])),
     );
   }, [treeCollapseKey]);
+
+  useEffect(() => {
+    void dispatch(loadScanLinks());
+  }, [dispatch]);
   const [renaming, setRenaming] = useState<{
     type: "folder" | "request";
     id: string;
@@ -1060,6 +1071,54 @@ function TreeContextMenu({
                 <Replace className="text-muted-foreground" />
                 Find &amp; Replace URLs…
               </DropdownMenuItem>
+              {!folderMenuTarget.parent_id ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void dispatch(openScanDrift(folderMenuTarget.id)).then(
+                        (result) => {
+                          if (openScanDrift.fulfilled.match(result)) {
+                            void dispatch(checkScanDrift());
+                          }
+                        },
+                      );
+                    }}
+                  >
+                    <GitCompareArrows className="text-muted-foreground" />
+                    Scan Drift…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void import("@/store/slices/openapiSlice").then(
+                        ({ openConnectOpenApi }) => {
+                          void dispatch(openConnectOpenApi(folderMenuTarget.id));
+                        },
+                      );
+                    }}
+                  >
+                    <FileJson className="text-muted-foreground" />
+                    Connect OpenAPI Spec…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void import("@/store/slices/openapiSlice").then(
+                        ({ openOpenApiSync, checkOpenApiDrift }) => {
+                          void dispatch(
+                            openOpenApiSync(folderMenuTarget.id),
+                          ).then((result) => {
+                            if (openOpenApiSync.fulfilled.match(result)) {
+                              void dispatch(checkOpenApiDrift());
+                            }
+                          });
+                        },
+                      );
+                    }}
+                  >
+                    <FileJson className="text-muted-foreground" />
+                    OpenAPI Sync…
+                  </DropdownMenuItem>
+                </>
+              ) : null}
               <DropdownMenuItem
                 onClick={() =>
                   onStartRename(

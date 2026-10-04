@@ -10,6 +10,9 @@
 | [community.md](community.md) | Discussions, Discord placeholder, norms |
 | [git-native.md](git-native.md) | Git-first collections format |
 | [url-replace.md](url-replace.md) | Bulk Find & Replace for request base URLs |
+| [openapi.md](openapi.md) | Connect OpenAPI/Swagger specs and sync collections |
+| [scan-drift.md](scan-drift.md) | Keep scanned collections in sync with code |
+| [env-detect.md](env-detect.md) | Detect `{{baseUrl}}` / secrets from project `.env` |
 | [release.md](release.md) | Release process details |
 | [release-checklist.md](release-checklist.md) | Ship checklist |
 

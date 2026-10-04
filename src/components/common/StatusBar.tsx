@@ -24,6 +24,7 @@ import {
   persistSettingsPatch,
   setSidebarCollapsed,
 } from "@/store/slices/settingsSlice";
+import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
 import { getScriptErrorFromPipeline } from "@/script-engine/utils/script-errors";
 import { formatZoomPercent, modKeyLabel } from "@/utils/zoom";
 import { cn } from "@/utils/cn";
@@ -54,6 +55,8 @@ export function StatusBar() {
   const theme = useAppSelector((s) => s.settings.theme);
   const isDark = useResolvedDarkMode(theme);
   const scriptConsoleVisible = useAppSelector((s) => s.ui.scriptConsoleVisible);
+  const sidebarView = useAppSelector((s) => s.ui.sidebarView);
+  const sidebarCollapsed = useAppSelector((s) => s.settings.sidebarCollapsed);
   const activeTabId = useAppSelector((s) => s.tabs.activeTabId);
   const scriptError = useAppSelector((s) =>
     activeTabId
@@ -96,13 +99,20 @@ export function StatusBar() {
           label={isDark ? "Light" : "Dark"}
           onClick={toggleTheme}
         />
-        <StatusBarItem icon={Search} label="Search" disabled />
+        <StatusBarItem
+          icon={Search}
+          label="Search"
+          title="Find & Replace URLs (sidebar)"
+          active={!sidebarCollapsed && sidebarView === "url-replace"}
+          onClick={() => void dispatch(openUrlReplacePanel())}
+        />
         <StatusBarItem
           icon={Cookie}
           label="Cookies"
           title="Manage cookies"
           onClick={() => dispatch(setCookiesManagerOpen(true))}
         />
+
         <StatusBarItem
           icon={Terminal}
           label="Console"

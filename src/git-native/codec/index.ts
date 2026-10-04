@@ -4,6 +4,7 @@ export {
   serializeCollectionDir,
   serializeRequestJson,
   suggestRequestRelativePath,
+  writeEnvironment,
 } from "./serialize";
 export { atomicWriteFile, atomicWriteJson } from "./atomic-write";
 export { serializeJson, parseJson, canonicalize } from "./json";

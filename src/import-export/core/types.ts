@@ -102,8 +102,6 @@ export interface ExportPlugin {
 
 export const FUTURE_IMPORT_FORMATS = [
   "bruno",
-  "openapi",
-  "swagger",
   "insomnia",
   "har",
   "curl",

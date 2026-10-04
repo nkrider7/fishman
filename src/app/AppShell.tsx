@@ -10,8 +10,15 @@ import { TabBar } from "@/components/common/TabBar";
 import { TitleBar } from "@/components/common/TitleBar";
 import { StatusBar } from "@/components/common/StatusBar";
 import { ApiTestingDialog } from "@/components/api-testing";
+import { ScanDriftDialog } from "@/components/scan-drift/ScanDriftDialog";
+import { EnvDetectDialog } from "@/components/env-detect/EnvDetectDialog";
+import { ConnectOpenApiDialog } from "@/components/openapi/ConnectOpenApiDialog";
+import { OpenApiSyncDialog } from "@/components/openapi/OpenApiSyncDialog";
 import { EnvironmentManagerDialog } from "@/components/environments/EnvironmentManagerDialog";
 import { CookiesManagerDialog } from "@/components/cookies/CookiesManagerDialog";
+import { AiCopilotDialog } from "@/components/ai/AiCopilotDialog";
+import { AiSidebar } from "@/components/ai/AiSidebar";
+import { AiScannerDialog } from "@/components/ai/AiScannerDialog";
 import { ToolsPanel } from "@/components/tools-panel";
 import { RequestBuilder } from "@/components/request/RequestBuilder";
 import { ResponseViewer } from "@/components/response/ResponseViewer";
@@ -45,6 +52,7 @@ export function AppShell() {
   const workspaceLayout = useAppSelector((s) => s.settings.workspaceLayout);
   const responseVisible = useAppSelector((s) => s.ui.responsePanelVisible);
   const scriptConsoleVisible = useAppSelector((s) => s.ui.scriptConsoleVisible);
+  const isAiSidebarOpen = useAppSelector((s) => s.ai.isSidebarOpen);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isWsTab = Boolean(activeDraft && isWebSocketRequest(activeDraft));
@@ -59,6 +67,13 @@ export function AppShell() {
     useDefaultLayout({
       id: "fishman-sidebar",
       panelIds: ["sidebar", "main"],
+      storage: localStorage,
+    });
+
+  const { defaultLayout: mainAiLayout, onLayoutChanged: onMainAiLayoutChanged } =
+    useDefaultLayout({
+      id: "fishman-main-ai-sidebar",
+      panelIds: ["workspace-view", "ai-sidebar"],
       storage: localStorage,
     });
 
@@ -185,7 +200,31 @@ export function AppShell() {
       </div>
     );
 
-  const mainContent = (
+  const mainContent = isAiSidebarOpen ? (
+    <Group
+      orientation="horizontal"
+      className="h-full min-h-0 min-w-0 flex-1"
+      defaultLayout={mainAiLayout}
+      onLayoutChanged={onMainAiLayoutChanged}
+    >
+      <Panel id="workspace-view" minSize={40} className="h-full min-h-0 min-w-0">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+          <TabBar />
+          {workspaceContent}
+        </div>
+      </Panel>
+      <Separator className="w-px bg-border transition-colors hover:bg-primary/50 data-[separator=active]:bg-primary/50" />
+      <Panel
+        id="ai-sidebar"
+        defaultSize={340}
+        minSize={260}
+        maxSize={550}
+        className="h-full min-h-0 min-w-0"
+      >
+        <AiSidebar />
+      </Panel>
+    </Group>
+  ) : (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <TabBar />
       {workspaceContent}
@@ -251,6 +290,12 @@ export function AppShell() {
       <EnvironmentManagerDialog />
       <CookiesManagerDialog />
       <ApiTestingDialog />
+      <ScanDriftDialog />
+      <EnvDetectDialog />
+      <ConnectOpenApiDialog />
+      <OpenApiSyncDialog />
+      <AiCopilotDialog />
+      <AiScannerDialog />
     </div>
   );
 }

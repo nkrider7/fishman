@@ -1,0 +1,76 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pet Store",
+    "version": "1.0.0"
+  },
+  "servers": [{ "url": "https://api.example.com/v1" }],
+  "paths": {
+    "/pets": {
+      "get": {
+        "summary": "List pets",
+        "operationId": "listPets",
+        "tags": ["pets"],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": { "description": "ok" }
+        }
+      },
+      "post": {
+        "summary": "Create pet",
+        "tags": ["pets"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Pet"
+              },
+              "example": { "name": "Fluffy", "tag": "cat" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "created" }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "summary": "Get pet",
+        "tags": ["pets"],
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "ok" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Pet": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "tag": { "type": "string" }
+        }
+      }
+    }
+  }
+}

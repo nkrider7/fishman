@@ -48,6 +48,7 @@ import {
 import { GenerateCodeDialog } from "@/components/codegen/GenerateCodeDialog";
 import { GraphQLBodyEditor } from "@/components/graphql/GraphQLBodyEditor";
 import { setApiTestingOpen } from "@/store/slices/uiSlice";
+import { toggleAiSidebarOpen } from "@/store/slices/aiSlice";
 import {
   patchApiTestingConfig,
 } from "@/store/slices/apiTestingSlice";
@@ -222,13 +223,15 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
           </button>
         </div>
       ) : null}
-      <div className="flex items-center gap-2 border-b p-1">
+      <div className="flex items-center gap-2 border-b border-border/80 p-1">
+        <div className="flex border-2 rounded-md w-full bg-muted/30 ">
         <Select
           value={draft.method}
           onValueChange={(v) => markUnsaved({ method: v as HttpMethod })}
+         
         >
           <SelectTrigger
-            className={cn("w-[90px] font-semibold", getMethodClass(draft.method))}
+            className={cn("w-[90px] font-semibold border-none bg-muted/40 ", getMethodClass(draft.method))}
             title={methodDef?.tooltip}
           >
             <SelectValue />
@@ -249,7 +252,7 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
             })}
           </SelectContent>
         </Select>
-        <div className="flex h-9 min-w-0 flex-1 items-center overflow-hidden rounded-md border border-input bg-transparent shadow-sm transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring">
+        <div className="flex h-9 min-w-0 flex-1 items-center overflow-hidden rounded-md  bg-transparent shadow-sm transition-colors focus-within:outline-none focus-within:ring-1 focus-within:ring-ring">
           <VariableAwareInput
             className="min-w-0 flex-1 rounded-none border-0 shadow-none focus-within:ring-0"
             value={draft.url}
@@ -263,6 +266,17 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
             }
           />
           <div className="flex shrink-0 items-center gap-0.5 pr-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-primary/80 hover:text-primary hover:bg-primary/10"
+              aria-label="Ask Fishman Copilot"
+              title="Toggle AI Copilot Sidebar (Cmd+K / Ctrl+K)"
+              onClick={() => dispatch(toggleAiSidebarOpen())}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -321,8 +335,8 @@ export function RequestBuilder({ tabId }: RequestBuilderProps) {
               <Save className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-        <Button type="button" className="font-semibold" onClick={handleSend} disabled={loading}>
+        </div></div>
+        <Button type="button" className="font-semibold rounded-xl" onClick={handleSend} disabled={loading}>
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (

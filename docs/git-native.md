@@ -94,6 +94,7 @@ Rules:
 
 - `*.secret.json`, `.env.secret`, `.env.local` are gitignored
 - Public env files may mark `secret: true` with empty values; overlays supply real values locally
+- **Detect from project** (Phase 1): scans project-root `.env*` and writes the same public/secret split — see [env-detect.md](env-detect.md)
 
 ## Git
 
@@ -111,6 +112,7 @@ Rules:
 | `src/git-native/git/` | Detection + operations contract |
 | `src/git-native/fs/` | FS adapter (memory for tests) |
 | `src/git-native/fixtures/` | Golden project |
+| `src/env-detect/` | Project `.env` → Fishman environments (Phase 1) |
 
 ## Roadmap (beyond codec)
 

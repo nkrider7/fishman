@@ -108,6 +108,19 @@ export interface AuthConfig {
   custom?: { key: string; value: string };
 }
 
+/** Scanner / OpenAPI ownership metadata (optional on legacy requests). */
+export interface RequestScanMeta {
+  origin: "scanner" | "openapi" | "manual" | "imported";
+  /** Stable identity: METHOD:normalizedPath */
+  scanKey: string;
+  /** When true, Scan Drift / OpenAPI sync will not overwrite this request. */
+  userLocked?: boolean;
+  sourceFile?: string;
+  framework?: string;
+  handler?: string;
+  lineNumber?: number;
+}
+
 export interface RequestDraft {
   id: string;
   name: string;
@@ -134,6 +147,8 @@ export interface RequestDraft {
   tags?: string[];
   collectionId?: string;
   isFavorite?: boolean;
+  /** Present when created/updated by the project scanner or Scan Drift. */
+  scan?: RequestScanMeta;
 }
 
 export interface RequestScripts {

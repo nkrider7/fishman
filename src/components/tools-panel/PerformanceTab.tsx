@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Clock, Cpu, Hash, MemoryStick } from "lucide-react";
 import { getSystemStats, type SystemStats } from "@/tauri/systemStats";
 import { ResourceCard } from "./ResourceCard";
 
@@ -65,8 +66,9 @@ export function PerformanceTab({ active }: PerformanceTabProps) {
     );
   }
 
+  const cpuPercent = stats?.cpuPercent ?? null;
   const cpu =
-    stats?.cpuPercent != null ? `${stats.cpuPercent.toFixed(1)}%` : "—";
+    cpuPercent != null ? `${cpuPercent.toFixed(1)}%` : "—";
   const memory =
     stats?.memoryMb != null ? `${stats.memoryMb.toFixed(1)} MB` : "—";
   const uptime =
@@ -82,10 +84,31 @@ export function PerformanceTab({ active }: PerformanceTabProps) {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <ResourceCard label="CPU Usage" value={cpu} />
-        <ResourceCard label="Memory Usage" value={memory} />
-        <ResourceCard label="Uptime" value={uptime} />
-        <ResourceCard label="Process ID" value={pid} />
+        <ResourceCard
+          label="CPU Usage"
+          value={cpu}
+          icon={Cpu}
+          iconClassName="text-sky-600 dark:text-sky-400"
+          progressPercent={cpuPercent}
+        />
+        <ResourceCard
+          label="Memory Usage"
+          value={memory}
+          icon={MemoryStick}
+          iconClassName="text-violet-600 dark:text-violet-400"
+        />
+        <ResourceCard
+          label="Uptime"
+          value={uptime}
+          icon={Clock}
+          iconClassName="text-amber-600 dark:text-amber-400"
+        />
+        <ResourceCard
+          label="Process ID"
+          value={pid}
+          icon={Hash}
+          iconClassName="text-muted-foreground"
+        />
       </div>
       {error ? (
         <p className="text-[11px] text-muted-foreground">{error}</p>

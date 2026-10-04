@@ -30,12 +30,12 @@ export function parseUrlParts(url: string): { domain: string; path: string } {
 
 export function formatNetworkTime(epochMs: number): string {
   try {
-    return new Date(epochMs).toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
+    const date = new Date(epochMs);
+    const h = String(date.getHours()).padStart(2, "0");
+    const m = String(date.getMinutes()).padStart(2, "0");
+    const s = String(date.getSeconds()).padStart(2, "0");
+    const ms = String(date.getMilliseconds()).padStart(3, "0");
+    return `${h}:${m}:${s}.${ms}`;
   } catch {
     return "—";
   }
@@ -43,8 +43,8 @@ export function formatNetworkTime(epochMs: number): string {
 
 export function formatDurationMs(ms: number | null): string {
   if (ms == null || Number.isNaN(ms)) return "—";
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
 }
 
 export function formatSizeBytes(bytes: number | null): string {

@@ -1,0 +1,57 @@
+swagger: "2.0"
+info:
+  title: Legacy Store
+  version: "1.0.0"
+host: legacy.example.com
+basePath: /api
+schemes:
+  - https
+paths:
+  /items:
+    get:
+      summary: List items
+      tags:
+        - items
+      parameters:
+        - name: q
+          in: query
+          type: string
+          required: false
+      responses:
+        "200":
+          description: ok
+  /items/{id}:
+    get:
+      summary: Get item
+      tags:
+        - items
+      parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
+      responses:
+        "200":
+          description: ok
+    post:
+      summary: Update item
+      tags:
+        - items
+      parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+            example:
+              name: Widget
+      responses:
+        "200":
+          description: ok

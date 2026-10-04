@@ -1,10 +1,23 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { ResponseTiming } from "@/types/response";
+
+export type NetworkLogLevel = "info" | "request" | "success" | "warn" | "error";
+
+export interface NetworkTraceLine {
+  at: number;
+  level: NetworkLogLevel;
+  message: string;
+}
+
+export type NetworkProxyMode = "system" | "none" | "custom";
 
 export interface NetworkLogEntry {
   id: string;
   method: string;
   statusCode: number | null;
+  statusText?: string | null;
   url: string;
+  finalUrl?: string | null;
   domain: string;
   path: string;
   startedAt: number;
@@ -12,6 +25,14 @@ export interface NetworkLogEntry {
   sizeBytes: number | null;
   tabId?: string;
   error?: string;
+  requestHeaders?: Record<string, string>;
+  requestBody?: string | null;
+  responseHeaders?: Record<string, string>;
+  responseBody?: string | null;
+  responseBodyTruncated?: boolean;
+  timing?: ResponseTiming;
+  proxyMode?: NetworkProxyMode;
+  trace?: NetworkTraceLine[];
 }
 
 interface NetworkLogState {

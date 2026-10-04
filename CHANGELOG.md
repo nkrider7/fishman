@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] - 2026-10-04
+
+### Added
+
+- **Native Needle AI Copilot**: 100% offline, private API Copilot powered by Cactus Compute's Needle 2 model (~14MB weight, ~28MB RAM footprint). Dedicated Right Sidebar panel (`Cmd+K` / `Ctrl+K`), cURL importer, TypeScript & JSON Schema synthesizer, and automated parameter extraction.
+- **AI Backend Codebase Scanner**: Fast static AST code harvester with mount prefix resolution for Express, NestJS, FastAPI, Go (Gin/Echo/Chi), and Spring Boot. Auto-generates realistic mock JSON payloads, detects auth schemes, groups nested domain entities (e.g. `Cycle -> Quick Notes`), and sets up collection environments.
+- **Scan Drift & Spec Synchronization**: Compare existing collections against local code routes to detect drifted endpoints and surgically synchronize changes without losing test scripts or drafts.
+- **OpenAPI & Swagger Integration**: Connect via URL or local file, generate collections, and maintain bi-directional spec synchronization.
+- **Environment Detection**: Automatically parses project `.env` files with a review dialog to configure environments and secret files.
+
+### Fixed
+
+- Resolved compiler dead code warning in backend scanner.
+- Zero-warning Rust Clippy compliance across all modules.
 
 ## [0.1.2] - 2026-08-16
 

@@ -123,6 +123,7 @@ export const importScanResult = createAsyncThunk(
     { getState },
   ) => {
     const state = getState() as import("../index").RootState;
+    const source = state.scanner.source;
     return importScannedEndpoints(result, {
       collectionName,
       baseUrl,
@@ -130,6 +131,10 @@ export const importScanResult = createAsyncThunk(
       workspaceId: state.workspaces.activeWorkspaceId,
       // Re-scan of the same project name replaces the existing root collection.
       conflictStrategy: "replace",
+      source,
+      projectPath: source === "local" ? state.scanner.projectPath : undefined,
+      githubUrl: source === "github" ? state.scanner.githubUrl : undefined,
+      githubRef: source === "github" ? state.scanner.githubRef || undefined : undefined,
     });
   },
   {

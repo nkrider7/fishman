@@ -66,6 +66,12 @@ async function ensureRequestSchema(database: Database): Promise<void> {
     );
   }
 
+  if (!(await columnExists(database, "requests", "scan_json"))) {
+    await database.execute(
+      `ALTER TABLE requests ADD COLUMN scan_json TEXT NOT NULL DEFAULT ''`,
+    );
+  }
+
   const folderCols: Array<{ name: string; ddl: string }> = [
     {
       name: "description",
@@ -159,6 +165,31 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
   await database.execute(
     "INSERT OR REPLACE INTO settings (key, value_json) VALUES (?, ?)",
     ["app", JSON.stringify(settings)],
+  );
+}
+
+export async function getSettingJson<T>(key: string, fallback: T): Promise<T> {
+  const database = await getDb();
+  const rows = await database.select<{ value_json: string }[]>(
+    "SELECT value_json FROM settings WHERE key = ?",
+    [key],
+  );
+  if (!rows[0]?.value_json) return fallback;
+  try {
+    return JSON.parse(rows[0].value_json) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function setSettingJson(
+  key: string,
+  value: unknown,
+): Promise<void> {
+  const database = await getDb();
+  await database.execute(
+    "INSERT OR REPLACE INTO settings (key, value_json) VALUES (?, ?)",
+    [key, JSON.stringify(value)],
   );
 }
 
@@ -585,6 +616,7 @@ export function requestToRow(request: RequestDraft, collectionId?: string | null
       protocol === "websocket"
         ? JSON.stringify(request.websocket ?? createDefaultWsConfig())
         : "",
+    scan_json: request.scan ? JSON.stringify(request.scan) : "",
     is_favorite: request.isFavorite ? 1 : 0,
     sort_order: Date.now(),
     created_at: Date.now(),
@@ -643,7 +675,30 @@ export function rowToRequest(row: SavedRequest): RequestDraft {
     tags: parseTagsJson(row.tags_json),
     collectionId: row.collection_id ?? undefined,
     isFavorite: row.is_favorite === 1,
+    scan: parseScanJson(row.scan_json),
   };
+}
+
+function parseScanJson(
+  raw?: string,
+): import("@/types/request").RequestScanMeta | undefined {
+  if (!raw || !raw.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as import("@/types/request").RequestScanMeta;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.scanKey === "string" &&
+      (parsed.origin === "scanner" ||
+        parsed.origin === "manual" ||
+        parsed.origin === "imported")
+    ) {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
 }
 
 function parseTagsJson(raw?: string): string[] {
@@ -694,6 +749,7 @@ export async function saveRequest(
     "requests",
     "websocket_json",
   );
+  const hasScanJson = await columnExists(database, "requests", "scan_json");
 
   if (existing.length > 0) {
     if (hasTags) {
@@ -793,8 +849,8 @@ export async function saveRequest(
     );
   }
 
-  // Additive WS columns — patched separately so older SQL branches stay simple.
-  if (hasProtocol || hasWebsocketJson) {
+  // Additive WS / scan columns — patched separately so older SQL branches stay simple.
+  if (hasProtocol || hasWebsocketJson || hasScanJson) {
     const sets: string[] = [];
     const values: unknown[] = [];
     if (hasProtocol) {
@@ -804,6 +860,10 @@ export async function saveRequest(
     if (hasWebsocketJson) {
       sets.push("websocket_json = ?");
       values.push(row.websocket_json ?? "");
+    }
+    if (hasScanJson) {
+      sets.push("scan_json = ?");
+      values.push(row.scan_json ?? "");
     }
     values.push(row.id);
     await database.execute(

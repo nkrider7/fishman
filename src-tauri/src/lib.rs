@@ -1,4 +1,6 @@
+mod ai;
 mod devtools;
+mod fetch_text;
 mod git_http;
 mod http;
 mod system_stats;
@@ -70,7 +72,15 @@ pub fn run() {
             sql: include_str!("../migrations/010_hot_path_indexes.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "scan_drift",
+            sql: include_str!("../migrations/011_scan_drift.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
+
+    let ai_state = ai::NeedleEngineState::default();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -85,8 +95,18 @@ pub fn run() {
         )
         .manage(terminal::TerminalState::default())
         .manage(websocket::WsState::default())
+        .manage(ai_state.clone())
+        .setup(move |app| {
+            let handle = app.handle().clone();
+            let state = ai_state.clone();
+            tauri::async_runtime::spawn(async move {
+                state.try_auto_load(&handle).await;
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             http::execute_request,
+            fetch_text::fetch_text_url,
             git_http::git_http_request,
             devtools::toggle_devtools,
             system_stats::get_system_stats,
@@ -97,6 +117,11 @@ pub fn run() {
             websocket::ws_connect,
             websocket::ws_send,
             websocket::ws_close,
+            ai::commands::ai_get_status,
+            ai::commands::ai_run_copilot,
+            ai::commands::ai_parse_curl,
+            ai::commands::ai_generate_schema,
+            ai::commands::ai_scan_codebase,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

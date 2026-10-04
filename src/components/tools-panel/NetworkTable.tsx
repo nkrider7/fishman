@@ -54,6 +54,8 @@ export function NetworkTable({ entries, selectedId }: NetworkTableProps) {
           return (
             <tr
               key={entry.id}
+              role="row"
+              aria-selected={selected}
               className={cn(
                 "cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/40",
                 selected && "bg-accent/50",

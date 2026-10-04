@@ -3,6 +3,7 @@ import type { ScannedCollection } from "../models/collection";
 import type { RequestDraft, FormDataField } from "@/types/request";
 import type { KeyValue } from "@/types/request";
 import { generateId } from "@/utils/id";
+import { buildScanMetaFromEndpoint } from "@/scan-drift/identity";
 
 export interface CollectionBuilderOptions {
   collectionName: string;
@@ -67,7 +68,7 @@ export function buildCollectionFromEndpoints(
   return { rootFolder, folders, requests };
 }
 
-function endpointToRequestDraft(
+export function endpointToRequestDraft(
   endpoint: ApiEndpoint,
   baseUrl?: string,
 ): RequestDraft {
@@ -200,5 +201,6 @@ function endpointToRequestDraft(
     auth,
     scripts: { preRequest: "", postResponse: "", tests: "" },
     collectionId: undefined,
+    scan: buildScanMetaFromEndpoint(endpoint),
   };
 }

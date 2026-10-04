@@ -15,6 +15,7 @@ import {
   setScriptConsoleVisible,
   setToolsPanelTab,
 } from "@/store/slices/uiSlice";
+import { toggleAiSidebarOpen } from "@/store/slices/aiSlice";
 import { openUrlReplacePanel } from "@/store/thunks/openUrlReplacePanel";
 import { createEmptyRequest, isWebSocketRequest } from "@/types/request";
 import { tryFormatJson } from "@/utils/requestBuilder";
@@ -99,6 +100,19 @@ export function useKeyboardShortcuts() {
             findPrefill ? { findPrefill } : undefined,
           ),
         );
+        return;
+      }
+
+      // Ctrl+K / Cmd+K — toggle AI Copilot Right Sidebar
+      if (
+        (e.key === "k" || e.key === "K") &&
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        dispatch(toggleAiSidebarOpen());
         return;
       }
 

@@ -1,7 +1,7 @@
 {
   "name": "fishman",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Open-source, native, Git-first API client built with Tauri, Rust, and React",
   "license": "Apache-2.0",
   "author": "Narendra Nishad",
@@ -72,6 +72,7 @@
     "react-resizable-panels": "^4.12.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -242,6 +242,13 @@ export function requestDraftToFish(
 ): FishRequest {
   const now = new Date().toISOString();
   const protocol = draft.protocol === "websocket" ? "websocket" : "http";
+  const scan = draft.scan;
+  const sourceKind =
+    scan?.origin === "scanner"
+      ? ("scanner" as const)
+      : scan?.origin === "imported"
+        ? ("imported" as const)
+        : ("manual" as const);
   return {
     id: draft.id || createUid("req"),
     name: draft.name || "Untitled",
@@ -264,7 +271,16 @@ export function requestDraftToFish(
     tags: draft.tags ?? [],
     favorite: draft.isFavorite ?? false,
     seq: options?.seq,
-    source: { kind: "manual", locked: true },
+    source: {
+      kind: sourceKind,
+      locked: scan?.userLocked ?? sourceKind === "manual",
+      routeFile: scan?.sourceFile,
+      endpointId: scan?.scanKey,
+      scanKey: scan?.scanKey,
+      framework: scan?.framework,
+      handler: scan?.handler,
+      lineNumber: scan?.lineNumber,
+    },
     createdAt: options?.createdAt ?? now,
     updatedAt: options?.updatedAt ?? now,
   };
@@ -277,6 +293,31 @@ export function fishRequestToDraft(
   const { bodyType, body, formDataFields, graphql } = bodyFromFish(req.body);
   const base = createEmptyRequest();
   const protocol = req.protocol === "websocket" ? "websocket" : "http";
+  const source = req.source;
+  const scan =
+    source && (source.scanKey || source.endpointId || source.kind === "scanner")
+      ? {
+          origin:
+            source.kind === "scanner"
+              ? ("scanner" as const)
+              : source.kind === "imported"
+                ? ("imported" as const)
+                : ("manual" as const),
+          scanKey: source.scanKey || source.endpointId || "",
+          userLocked: source.locked,
+          sourceFile: source.routeFile,
+          framework: source.framework,
+          handler: source.handler,
+          lineNumber: source.lineNumber,
+        }
+      : source?.kind === "manual"
+        ? {
+            origin: "manual" as const,
+            scanKey: "",
+            userLocked: source.locked,
+            sourceFile: source.routeFile,
+          }
+        : undefined;
   return {
     ...base,
     id: req.id,
@@ -299,5 +340,6 @@ export function fishRequestToDraft(
     tags: req.tags ?? [],
     collectionId: options?.collectionId,
     isFavorite: req.favorite ?? false,
+    scan: scan?.scanKey ? scan : scan?.origin === "manual" ? scan : undefined,
   };
 }

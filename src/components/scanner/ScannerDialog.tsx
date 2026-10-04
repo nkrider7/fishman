@@ -450,7 +450,26 @@ function ScannerDialogOpen() {
             </>
           )}
           {(step === "done" || step === "importing") && (
-            <Button onClick={handleClose}>Close</Button>
+            <>
+              {step === "done" ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    dispatch(closeScanner());
+                    void import("@/store/slices/scanDriftSlice").then(
+                      ({ openScanDrift, checkScanDrift }) => {
+                        void dispatch(openScanDrift(undefined)).then(() => {
+                          void dispatch(checkScanDrift());
+                        });
+                      },
+                    );
+                  }}
+                >
+                  Check for drift
+                </Button>
+              ) : null}
+              <Button onClick={handleClose}>Close</Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

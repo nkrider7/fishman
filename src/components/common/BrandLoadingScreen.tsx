@@ -1,5 +1,5 @@
-import { BRAND_MARK_PNG, BRAND_MARK_WEBP, BRAND_SUN_SVG } from "@/brand/assets";
 import { cn } from "@/utils/cn";
+import logo from "@/assets/swim.gif";
 
 interface BrandLoadingScreenProps {
   message?: string;
@@ -27,11 +27,11 @@ export function BrandLoadingScreen({
     >
       <div className="brand-splash-enter relative z-10 flex flex-col items-center">
         <div
-          className="relative h-16 w-16 shrink-0"
+          className="relative h-40 w-40 shrink-0"
           role="img"
           aria-label="Fishman"
         >
-          <img
+          {/* <img
             src={BRAND_SUN_SVG}
             alt=""
             aria-hidden
@@ -40,23 +40,23 @@ export function BrandLoadingScreen({
             height={64}
             decoding="async"
             className="brand-splash-sun absolute inset-0 m-auto h-full w-full select-none object-contain"
-          />
-          <picture>
-            <source srcSet={BRAND_MARK_WEBP} type="image/webp" />
+          /> */}
+          {/* <picture>
+            <source srcSet={BRAND_MARK_WEBP} type="image/webp" /> */}
             <img
-              src={BRAND_MARK_PNG}
+              src={logo}
               alt=""
               aria-hidden
               draggable={false}
-              width={58}
-              height={58}
+              width={128}
+              height={128}
               decoding="async"
-              className="brand-splash-mark absolute inset-0 m-auto h-[90%] w-[90%] select-none object-contain"
+              className="h-40 w-auto select-none rounded-full object-contain dark:invert-0 opacity-55 invert dark:opacity-40"
             />
-          </picture>
+          {/* </picture> */}
         </div>
 
-        <h1 className="mt-5 text-xl font-semibold tracking-wide text-neutral-100">
+        <h1 className="mt-5 text-xl font-semibold tracking-wide text-black/60 dark:text-neutral-100">
           {message}
         </h1>
         {submessage ? (

@@ -97,6 +97,8 @@ export interface SavedRequest {
   protocol?: string;
   /** Serialized WsConfig JSON when protocol is websocket. */
   websocket_json?: string;
+  /** Serialized RequestScanMeta JSON for Scan Drift. */
+  scan_json?: string;
   is_favorite: number;
   sort_order: number;
   created_at: number;

@@ -125,7 +125,8 @@ async function writeFolderTree(
   }
 }
 
-async function writeEnvironment(
+/** Write one environment public JSON + optional gitignored secret overlay. */
+export async function writeEnvironment(
   fs: GitNativeFs,
   rootPath: string,
   env: FishEnvironmentNode,
