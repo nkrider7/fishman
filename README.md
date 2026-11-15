@@ -392,14 +392,6 @@ When configuring the repository on GitHub, add:
 
 ## Support
 
-<div align="center">
-  <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
-    <img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi3.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" />
-  </a>
-  <br />
-  <a href="https://ko-fi.com/B6E223SE98" target="_blank" rel="noopener noreferrer">
-    <img src="docs/images/buyme.png" alt="It's free. It's open source. I just need coffee — support Fishman on Ko-fi" width="100%" />
-  </a>
-</div>
+
 
 Sponsorship never gates features — Fishman stays open source and free to use.
